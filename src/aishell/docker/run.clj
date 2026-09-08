@@ -495,6 +495,12 @@
                   [state-key (vec env-passthrough)])))
         harness/registry))
 
+(defn host-env
+  "Read one host environment variable. The seam tests rebind to control
+   which passthrough variables look set."
+  [var]
+  (System/getenv var))
+
 (defn- build-api-env-args
   "Build -e flags for API keys required by enabled harnesses."
   [state]
@@ -503,8 +509,19 @@
                           (mapcat val)
                           distinct)]
     (->> enabled-keys
-         (filter #(System/getenv %))
-         (mapcat (fn [var] ["-e" (str var "=" (System/getenv var))])))))
+         (keep (fn [var] (when-let [value (host-env var)] ["-e" (str var "=" value)])))
+         (apply concat))))
+
+(defn- build-harness-runtime-env-args
+  "Build fixed -e flags declared by enabled harnesses. Applied after ordinary
+   config env so aishell-owned runtime policy wins unless the user deliberately
+   overrides it through the low-level docker_args escape hatch."
+  [state]
+  (into []
+        (comp (filter #(get state (:state-key %)))
+              (mapcat :runtime-env)
+              (mapcat (fn [[var value]] ["-e" (str var "=" value)])))
+        harness/registry))
 
 (def ^:private harness-credential-files
   "Setup-state flag -> env var naming a host credentials file the harness reads.
@@ -596,6 +613,9 @@
         ;; Config: env
         (cond-> (:env config)
           (into (build-env-args (:env config))))
+
+        ;; Harness-owned runtime environment overrides ordinary config env
+        (into (build-harness-runtime-env-args state))
 
         ;; Config: ports
         (cond-> (:ports config)

@@ -14,6 +14,7 @@
             :state-map {:with-claude true
                         :with-opencode false
                         :with-codex false
+                        :with-copilot false
                         :with-gemini false
                         :with-pi false
                         :with-gitleaks false
@@ -21,6 +22,7 @@
                         :claude-version "2.0.22"
                         :opencode-version nil
                         :codex-version nil
+                        :copilot-version nil
                         :gemini-version nil
                         :pi-version nil}}
            (cli/resolve-setup-state {:with-claude "2.0.22"}
@@ -34,6 +36,7 @@
     (is (= {:with-claude true
             :with-opencode true
             :with-codex false
+            :with-copilot true
             :with-gemini false
             :with-pi true
             :with-gitleaks true
@@ -41,6 +44,7 @@
             :claude-version "2.0.22"
             :opencode-version nil
             :codex-version nil
+            :copilot-version "0.0.339"
             :gemini-version nil
             :pi-version "1.0.0"}
            (:state-map (cli/resolve-setup-state {:reuse-config true
@@ -51,6 +55,8 @@
                                                  :with-opencode true
                                                  :opencode-version "0.9.0"
                                                  :with-gitleaks true
+                                                 :with-copilot true
+                                                 :copilot-version "0.0.339"
                                                  :unisoma true}))))))
 
 (deftest resolve-setup-state-drops-removed-openspec-keys
@@ -127,6 +133,7 @@
     (is (= :unsupported (cli/classify-json-command ["claude"])))
     (is (= :unsupported (cli/classify-json-command ["opencode"])))
     (is (= :unsupported (cli/classify-json-command ["codex"])))
+    (is (= :unsupported (cli/classify-json-command ["copilot"])))
     (is (= :unsupported (cli/classify-json-command ["gemini"])))
     (is (= :unsupported (cli/classify-json-command ["pi"])))
     (is (= :unsupported (cli/classify-json-command ["gitleaks"])))
@@ -224,7 +231,8 @@
 
 (deftest setup-spec-carries-one-flag-per-harness
   (testing "every harness has a --with-<id> flag"
-    (is (= #{:with-claude :with-opencode :with-codex :with-gemini :with-pi :with-gitleaks}
+    (is (= #{:with-claude :with-opencode :with-codex :with-copilot
+             :with-gemini :with-pi :with-gitleaks}
            (set/intersection (set (keys cli/setup-spec))
                              (set (map :state-key harness/registry))))))
   (testing "versioned flags take an optional =VERSION and so are not coerced"
@@ -234,6 +242,9 @@
            (:with-pi cli/setup-spec)))
     (is (= {:desc "Include Codex CLI (optional: =VERSION)"}
            (:with-codex cli/setup-spec))))
+  (testing "Copilot supports an optional npm version or distribution tag"
+    (is (= {:desc "Include GitHub Copilot CLI (optional: =VERSION)"}
+           (:with-copilot cli/setup-spec))))
   (testing "the version-less gitleaks flag is a plain boolean"
     (is (= {:coerce :boolean :desc "Include Gitleaks secret scanner"}
            (:with-gitleaks cli/setup-spec))))
@@ -245,7 +256,7 @@
   (testing "harness flags come first, in display order, then the rest"
     (let [out (with-out-str (cli/print-setup-help))
           index (fn [flag] (str/index-of out (str "--" flag)))]
-      (is (apply < (map index ["with-claude" "with-opencode" "with-codex"
+      (is (apply < (map index ["with-claude" "with-opencode" "with-codex" "with-copilot"
                                "with-gemini" "with-pi" "with-gitleaks"
                                "unisoma" "dir"]))))))
 
@@ -267,11 +278,21 @@
 (deftest empty-setup-state-covers-every-harness-key
   (testing "a boolean per harness, a version per versioned harness, plus unisoma"
     (is (= {:with-claude false :with-opencode false :with-codex false
-            :with-gemini false :with-pi false :with-gitleaks false
+            :with-copilot false :with-gemini false :with-pi false :with-gitleaks false
             :unisoma false
             :claude-version nil :opencode-version nil :codex-version nil
-            :gemini-version nil :pi-version nil}
+            :copilot-version nil :gemini-version nil :pi-version nil}
            cli/empty-setup-state))))
+
+(deftest copilot-setup-requires-semver
+  (testing "a Copilot npm distribution tag is rejected like any other harness"
+    (is (str/starts-with? (cli/setup-validation-error
+                           (cli/resolve-setup-state {:with-copilot "prerelease"} nil))
+                          "Invalid GitHub Copilot CLI version format")))
+  (testing "unsafe tag characters remain rejected"
+    (is (str/includes? (cli/setup-validation-error
+                        (cli/resolve-setup-state {:with-copilot "next;rm"} nil))
+                       "shell metacharacters"))))
 
 (deftest explicit-setup-state-reads-every-harness-flag
   (testing "flags with versions, bare flags, and the boolean-only harness"
@@ -316,6 +337,7 @@
       (is (str/includes? out "claude     Run Claude Code"))
       (is (str/includes? out "opencode   Run OpenCode"))
       (is (str/includes? out "codex      Run Codex CLI"))
+      (is (str/includes? out "copilot    Run GitHub Copilot CLI"))
       (is (str/includes? out "gemini     Run Gemini CLI"))
       (is (str/includes? out "pi         Run Pi coding agent"))
       (is (str/includes? out "gitleaks   Run Gitleaks"))))

@@ -469,7 +469,7 @@ This does not affect `claude_isolation: shared` mode, where the whole `~/.claude
    # Should include /tools/npm/bin and /tools/bin
 
    ls -la /tools/npm/bin
-   # Should show harness binaries (claude, codex, gemini, pi)
+   # Should show enabled harness binaries (claude, codex, copilot, gemini, pi)
    ```
 
 5. **Check volume mount:**
@@ -679,6 +679,7 @@ ls -la ~/.gemini/
 1. **Check which directories should exist:**
    - Claude Code: `~/.claude`
    - Codex CLI: `~/.codex`
+   - GitHub Copilot CLI: `~/.copilot`
    - Gemini CLI: `~/.gemini`
    - Pi: `~/.pi`
    - OpenCode: `~/.config/opencode`, `~/.local/share/opencode`
@@ -687,6 +688,7 @@ ls -la ~/.gemini/
    ```bash
    ls -la ~/.claude
    ls -la ~/.codex
+   ls -la ~/.copilot
    ls -la ~/.gemini
    ls -la ~/.pi
    ```
@@ -694,7 +696,7 @@ ls -la ~/.gemini/
 3. **Check they are mounted:**
    ```bash
    aishell
-   mount | grep -E '\.claude|\.codex|\.gemini|\.pi'
+   mount | grep -E '\.claude|\.codex|\.copilot|\.gemini|\.pi'
    ```
 
 4. **If not mounted, check for conflicts:**

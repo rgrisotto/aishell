@@ -7,9 +7,9 @@
 ;; Registry membership and order
 ;; ---------------------------------------------------------------------------
 
-(deftest registry-holds-six-descriptors-in-display-order
+(deftest registry-holds-seven-descriptors-in-display-order
   (testing "the registry is the closed, ordered set of harnesses"
-    (is (= [:claude :opencode :codex :gemini :pi :gitleaks]
+    (is (= [:claude :opencode :codex :copilot :gemini :pi :gitleaks]
            (mapv :id harness/registry))))
   (testing "descriptors are pure data — no functions in any row"
     (is (empty? (for [d harness/registry
@@ -28,6 +28,7 @@
     (is (= {:claude "Claude Code"
             :opencode "OpenCode"
             :codex "Codex CLI"
+            :copilot "GitHub Copilot CLI"
             :gemini "Gemini CLI"
             :pi "Pi coding agent"
             :gitleaks "Gitleaks"}
@@ -95,7 +96,7 @@
 
 (deftest install-kinds-are-explicit
   (testing "each harness declares how it is installed"
-    (is (= {:claude :npm :opencode :binary-tarball :codex :npm
+    (is (= {:claude :npm :opencode :binary-tarball :codex :npm :copilot :npm
             :gemini :npm :pi :npm :gitleaks :image-baked}
            (into {} (map (juxt :id #(get-in % [:install :kind]))) harness/registry)))))
 
@@ -115,11 +116,11 @@
         (is (= (keyword (str (name (:id d)) "-version")) (:version-key d)))))))
 
 (deftest volume-participants-exclude-gitleaks
-  (testing "the five installable harnesses participate in the harness volume"
-    (is (= [:claude :opencode :codex :gemini :pi]
+  (testing "the six installable harnesses participate in the harness volume"
+    (is (= [:claude :opencode :codex :copilot :gemini :pi]
            (mapv :id (harness/volume-participants)))))
   (testing "sorted participant ids are the hash membership set"
-    (is (= [:claude :codex :gemini :opencode :pi]
+    (is (= [:claude :codex :copilot :gemini :opencode :pi]
            (sort (map :id (harness/volume-participants))))))
   (testing "gitleaks is baked into the image, not the volume"
     (is (false? (:volume-participant? (harness/descriptor :gitleaks))))))
@@ -130,15 +131,15 @@
 
 (deftest subcommand-set-covers-every-harness
   (testing "every harness is reachable as a pass-through subcommand"
-    (is (= ["claude" "opencode" "codex" "gemini" "pi" "gitleaks"]
+    (is (= ["claude" "opencode" "codex" "copilot" "gemini" "pi" "gitleaks"]
            (harness/subcommands)))))
 
 (deftest alias-emitters-and-their-unconditional-flag
   (testing "gitleaks emits no shell alias"
-    (is (= [:claude :opencode :codex :gemini :pi]
+    (is (= [:claude :opencode :codex :copilot :gemini :pi]
            (mapv :id (harness/alias-emitters)))))
-  (testing "claude and codex always emit; the rest only when they carry args"
-    (is (= {:claude true :opencode false :codex true :gemini false :pi false}
+  (testing "claude, codex and copilot always emit; the rest only when they carry args"
+    (is (= {:claude true :opencode false :codex true :copilot true :gemini false :pi false}
            (into {} (map (juxt :id #(get-in % [:alias :always?]))) (harness/alias-emitters))))))
 
 (deftest launch-shape-capabilities
@@ -171,6 +172,13 @@
            (:env-passthrough (harness/descriptor :codex))))
     (is (= ["ANTHROPIC_API_KEY"]
            (:env-passthrough (harness/descriptor :claude)))))
+  (testing "copilot carries only its supported persistence and environment contract"
+    (is (= [{:path [".copilot"] :type :dir}]
+           (:config-paths (harness/descriptor :copilot))))
+    (is (= ["COPILOT_GITHUB_TOKEN" "COPILOT_GH_HOST"]
+           (:env-passthrough (harness/descriptor :copilot))))
+    (is (= {"COPILOT_AUTO_UPDATE" "false"}
+           (:runtime-env (harness/descriptor :copilot)))))
   (testing "gitleaks has neither config paths nor passthrough env vars"
     (is (nil? (:config-paths (harness/descriptor :gitleaks))))
     (is (nil? (:env-passthrough (harness/descriptor :gitleaks))))))
@@ -201,6 +209,7 @@
     (is (= ["claude" "--dangerously-skip-permissions"] (argv :claude {:skip-permissions? true})))
     (is (= ["opencode"] (argv :opencode {:skip-permissions? true})))
     (is (= ["codex" "-c" "check_for_update_on_startup=false"] (argv :codex {:skip-permissions? true})))
+    (is (= ["copilot"] (argv :copilot {:skip-permissions? true})))
     (is (= ["gemini"] (argv :gemini {:skip-permissions? true})))
     (is (= ["pi"] (argv :pi {:skip-permissions? true})))
     (is (= ["gitleaks"] (argv :gitleaks {:skip-permissions? true}))))
@@ -208,12 +217,16 @@
     (is (= ["claude"] (argv :claude {:skip-permissions? false})))
     (is (= ["opencode"] (argv :opencode {:skip-permissions? false})))
     (is (= ["codex" "-c" "check_for_update_on_startup=false"] (argv :codex {:skip-permissions? false})))
+    (is (= ["copilot"] (argv :copilot {:skip-permissions? false})))
     (is (= ["gemini"] (argv :gemini {:skip-permissions? false})))
     (is (= ["pi"] (argv :pi {:skip-permissions? false})))
     (is (= ["gitleaks"] (argv :gitleaks {:skip-permissions? false}))))
   (testing "omitted skip-permissions is treated as off, not as the env default"
     (is (= ["claude"] (argv :claude {})))
-    (is (= ["claude"] (argv :claude nil)))))
+    (is (= ["claude"] (argv :claude nil))))
+  (testing "copilot never gets an implicit --allow-all or --yolo, skip-permissions on or off"
+    (is (not-any? #{"--allow-all" "--yolo"} (argv :copilot {:skip-permissions? true})))
+    (is (not-any? #{"--allow-all" "--yolo"} (argv :copilot {:skip-permissions? false})))))
 
 (deftest argv-config-defaults-precede-cli-args
   (testing "defaults come first so CLI args win by position"
@@ -227,7 +240,11 @@
   (testing "codex's update-check flag precedes both"
     (is (= ["codex" "-c" "check_for_update_on_startup=false" "--full-auto" "exec"]
            (argv :codex {:default-args ["--full-auto"] :cli-args ["exec"]}))))
-  (testing "gemini and pi simply append"
+  (testing "copilot, gemini and pi simply append"
+    (is (= ["copilot" "--model" "gpt-5" "-p" "hi"]
+           (argv :copilot {:skip-permissions? true
+                           :default-args ["--model" "gpt-5"]
+                           :cli-args ["-p" "hi"]})))
     (is (= ["gemini" "-d" "--yolo"] (argv :gemini {:default-args ["-d"] :cli-args ["--yolo"]})))
     (is (= ["pi" "-d" "--yolo"] (argv :pi {:default-args ["-d"] :cli-args ["--yolo"]})))))
 
@@ -258,7 +275,7 @@
 
 (deftest versioned-harnesses-are-those-with-a-version-key
   (testing "gitleaks is image-baked and carries no pinnable version"
-    (is (= [:claude :opencode :codex :gemini :pi]
+    (is (= [:claude :opencode :codex :copilot :gemini :pi]
            (mapv :id (harness/versioned))))))
 
 (deftest setup-flag-descriptions

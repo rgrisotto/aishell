@@ -167,7 +167,7 @@ aishell/
 3. **npm installation:**
    - Sets `NPM_CONFIG_PREFIX=/tools/npm`
    - Runs `npm install -g @anthropic-ai/claude-code@{version}`
-   - Repeats for each enabled npm harness/tool (claude, codex, gemini, pi)
+   - Repeats for each enabled npm harness (claude, codex, copilot, gemini, pi)
 4. **Binary download (OpenCode):**
    - Downloads `curl -L https://github.com/anomalyco/opencode/releases/.../opencode-linux-x64.tar.gz`
    - Extracts to `/tools/bin`
@@ -222,361 +222,97 @@ aishell/
 
 ## Adding a New Harness
 
-Follow this checklist to integrate a new harness (e.g., `cursor`, `aider`). See the Claude, Codex, Gemini, and Pi integrations as reference implementations.
+Every harness-dependent behavior derives from the harness registry in
+`src/aishell/harness.clj`: setup flags, `--reuse-config`, summaries, help,
+`check`, `info`, `update`, the harness-volume hash and install commands,
+config mounts, environment passthrough, shell aliases and launch argv. Adding
+a harness means adding one descriptor there, then proving it through the
+existing contract tests. No harness-specific branch belongs in `cli.clj`,
+`run.clj` or `volume.clj`; the Copilot integration (`:copilot`) is the
+reference for an npm harness added this way.
 
-### Step 1: Dockerfile Template
+### Step 1: Descriptor
 
-**File:** `src/aishell/docker/templates.clj`
-
-Add the harness installation to the Dockerfile template:
-
-**a. Add build arguments:**
-```dockerfile
-ARG WITH_CURSOR=false
-ARG CURSOR_VERSION=""
-```
-
-Pattern: `WITH_{HARNESS}` (uppercase) and `{HARNESS}_VERSION`
-
-**b. Add installation block:**
-```dockerfile
-# Install Cursor if requested (npm global or curl install)
-RUN if [ "$WITH_CURSOR" = "true" ]; then \
-        if [ -n "$CURSOR_VERSION" ]; then \
-            npm install -g @cursor/cursor-cli@"$CURSOR_VERSION"; \
-        else \
-            npm install -g @cursor/cursor-cli; \
-        fi; \
-    fi
-```
-
-**Patterns for different installers:**
-
-**npm global (most common):**
-```dockerfile
-RUN if [ "$WITH_CURSOR" = "true" ]; then \
-        if [ -n "$CURSOR_VERSION" ]; then \
-            npm install -g @cursor/cursor-cli@"$CURSOR_VERSION"; \
-        else \
-            npm install -g @cursor/cursor-cli; \
-        fi; \
-    fi
-```
-
-**curl install script (like OpenCode):**
-```dockerfile
-RUN if [ "$WITH_CURSOR" = "true" ]; then \
-        if [ -n "$CURSOR_VERSION" ]; then \
-            VERSION="$CURSOR_VERSION" curl -fsSL https://cursor.sh/install | bash; \
-        else \
-            curl -fsSL https://cursor.sh/install | bash; \
-        fi; \
-    fi
-```
-
-**Binary install locations:**
-- npm global: `/usr/local/bin/{harness}`
-- Custom installer: May install to `/usr/local/bin` or `$HOME/.local/bin`
-
-**Checklist:**
-- [ ] Added `ARG WITH_CURSOR=false`
-- [ ] Added `ARG CURSOR_VERSION=""`
-- [ ] Added `RUN if [ "$WITH_CURSOR" = "true" ]` block
-- [ ] Installation works without version (latest)
-- [ ] Installation works with version (`CURSOR_VERSION="1.2.3"`)
-- [ ] Binary location is in `$PATH`
-
----
-
-### Step 2: Build Flags
-
-**File:** `src/aishell/docker/build.clj`
-
-**a. Add to `build-docker-args` function:**
-
-In the function that constructs Docker build args:
-```clojure
-(defn- build-docker-args
-  [{:keys [with-claude with-opencode with-codex with-gemini
-           claude-version opencode-version codex-version gemini-version]} dockerfile-hash]
-  (cond-> []
-    with-claude (conj "--build-arg" "WITH_CLAUDE=true")
-    with-opencode (conj "--build-arg" "WITH_OPENCODE=true")
-    with-codex (conj "--build-arg" "WITH_CODEX=true")
-    with-gemini (conj "--build-arg" "WITH_GEMINI=true")
-    ;; ADD YOUR HARNESS HERE:
-    with-cursor (conj "--build-arg" "WITH_CURSOR=true")
-    ;; ...
-```
-
-Add the new keys to both the function signature and the `cond->` threading macro.
-
-**b. Add to `needs-rebuild?` function:**
-
-Ensure version changes trigger a rebuild:
-```clojure
-(and (:with-cursor opts)
-     (not= (:cursor-version opts) (:cursor-version state)))
-```
-
-**c. Add to build output:**
-
-In the section that prints installed harnesses after build:
-```clojure
-(when (:with-cursor opts)
-  (println (format-harness-line "Cursor" (:cursor-version opts))))
-```
-
-**Checklist:**
-- [ ] Added `:with-cursor` and `:cursor-version` to function signature
-- [ ] Added to `build-docker-args` cond-> block
-- [ ] Added version check to `needs-rebuild?`
-- [ ] Added to build success output
-
----
-
-### Step 3: CLI Flags
-
-**File:** `src/aishell/cli.clj`
-
-**a. Add to `setup-spec`:**
-```clojure
-(def setup-spec
-  {:with-claude   {:desc "Include Claude Code (optional: =VERSION)"}
-   :with-opencode {:desc "Include OpenCode (optional: =VERSION)"}
-   :with-codex    {:desc "Include Codex CLI (optional: =VERSION)"}
-   :with-gemini   {:desc "Include Gemini CLI (optional: =VERSION)"}
-   ;; ADD YOUR HARNESS HERE:
-   :with-cursor   {:desc "Include Cursor (optional: =VERSION)"}
-   ;; ...
-```
-
-**b. Add to `handle-setup` function:**
-
-Parse the flag and validate the version:
-```clojure
-(defn handle-setup [{:keys [opts]}]
-  (if (:help opts)
-    (print-setup-help)
-    (let [cursor-config (parse-with-flag (:with-cursor opts))
-          _ (validate-version (:version cursor-config) "Cursor")
-          ;; ...
-```
-
-Include in `build-base-image` call:
-```clojure
-(build/build-base-image
-  {:with-cursor (:enabled? cursor-config)
-   :cursor-version (:version cursor-config)
-   ;; ...
-```
-
-**c. Add to `handle-update` function:**
-
-Preserve the harness configuration on update:
-```clojure
-(when (:with-cursor state)
-  (println (str "  Cursor: " (or (:cursor-version state) "latest"))))
-```
-
-**d. Add to state persistence:**
-
-Both in `handle-setup` and `handle-update`:
-```clojure
-(state/write-state
-  {:with-cursor (:enabled? cursor-config)
-   :cursor-version (:version cursor-config)
-   ;; ...
-```
-
-**e. Add to help text:**
-```clojure
-(defn print-help []
-  ;; ...
-  (println (str "  " output/CYAN "cursor" output/NC "     Run Cursor"))
-  ;; ...
-```
-
-**f. Add to command dispatch:**
-```clojure
-(case (first clean-args)
-  "claude" (run/run-container "claude" (vec (rest clean-args)) {:unsafe unsafe?})
-  ;; ...
-  "cursor" (run/run-container "cursor" (vec (rest clean-args)) {:unsafe unsafe?})
-  ;; ...
-```
-
-**Checklist:**
-- [ ] Added `:with-cursor` to `setup-spec`
-- [ ] Added flag parsing in `handle-setup`
-- [ ] Added version validation
-- [ ] Added to setup invocation
-- [ ] Added to state persistence
-- [ ] Added to `handle-update` output
-- [ ] Added to help text
-- [ ] Added to command dispatch
-
----
-
-### Step 4: Config Mounts
-
-**File:** `src/aishell/docker/run.clj`
-
-Add a config directory mount to the `harness-config-mounts` function:
+Append a descriptor to `registry` in display order. The schema comment at the
+top of the namespace documents every key; the required ones are `:id`,
+`:label`, `:subcommand`, `:state-key` (`:with-<id>`), `:version-key`
+(`:<id>-version`), the four capability booleans (`:interactive?`,
+`:pre-start?`, `:accepts-config-defaults?`, `:volume-participant?`) and
+`:install`.
 
 ```clojure
-(defn harness-config-mounts
-  "Standard mounts for harness configuration directories.
-   Only mounts directories that exist on host."
-  []
-  (let [home (util/get-home)
-        config-paths [[(str home "/.claude") (str home "/.claude")]
-                      [(str home "/.claude.json") (str home "/.claude.json")]
-                      [(str home "/.config/opencode") (str home "/.config/opencode")]
-                      [(str home "/.local/share/opencode") (str home "/.local/share/opencode")]
-                      [(str home "/.codex") (str home "/.codex")]
-                      [(str home "/.gemini") (str home "/.gemini")]
-                      [(str home "/.pi") (str home "/.pi")]
-                      ;; ADD YOUR HARNESS HERE:
-                      [(str home "/.cursor") (str home "/.cursor")]]]
-    ;; ...
+{:id :cursor
+ :label "Cursor CLI"
+ :subcommand "cursor"
+ :state-key :with-cursor
+ :version-key :cursor-version
+ :interactive? true
+ :pre-start? true
+ :accepts-config-defaults? true
+ :volume-participant? true
+ :alias {:always? true}
+ :install {:kind :npm :package "@cursor/cli"}
+ :config-paths [{:path [".cursor"] :type :dir}]
+ :env-passthrough ["CURSOR_API_KEY"]
+ :runtime-env {"CURSOR_AUTO_UPDATE" "false"}}
 ```
 
-**Pattern:** `[source-path target-path]` tuple in `config-paths` vector.
+Optional keys, each read by exactly one derivation:
 
-**Common config locations:**
-- `~/.{harness}` - Most CLI tools
-- `~/.config/{harness}` - XDG Base Directory compliant
-- `~/.local/share/{harness}` - XDG data directory
+| Key | Effect |
+|-----|--------|
+| `:fixed-args` | argv flags inserted before user args on every launch |
+| `:skip-permissions-flag` | flag added when skip-permissions is in effect |
+| `:alias` | emit a shell alias in the sandbox; `{:always? false}` means only when it has args |
+| `:setup-flag-desc` | help text for `--with-<id>` when "Include <label>" is not enough |
+| `:config-paths` | home-relative dirs/files created on the host and mounted into the container |
+| `:credentials-file-env` | env var naming a host credentials file to mount read-only |
+| `:env-passthrough` | host env vars forwarded when set, in declared order |
+| `:runtime-env` | fixed env entries applied when enabled; they override config `env` and lose only to `docker_args` |
 
-**Test the mount:**
-```bash
-# Authenticate on host
-cursor login
+Keep `:env-passthrough` to variables the harness itself defines. Broad
+credentials such as `GITHUB_TOKEN` stay an explicit opt-in through the
+`env` config key.
 
-# Check credentials exist
-ls -la ~/.cursor
+Install kinds: `:npm` (`{:kind :npm :package "..."}`, pinned by semver
+through `--with-<id>=VERSION`), `:binary-tarball` (see OpenCode) and
+`:image-baked` (see gitleaks). A new kind needs a branch in
+`volume/build-install-commands`.
 
-# Run in container
-aishell cursor
+### Step 2: Contract tests
 
-# Verify mounted
-aishell
-ls -la ~/.cursor
-```
+The registry tests are table-driven over `harness/registry`, so most of them
+fail until the new descriptor is complete. Extend the literal expectations in:
 
-**Checklist:**
-- [ ] Added `[source, target]` tuple to `config-paths`
-- [ ] Used correct config directory path for the harness
-- [ ] Verified directory exists after authentication
-- [ ] Tested credentials persist between container sessions
+- `test/aishell/harness_test.clj`: descriptor count and order, labels,
+  install kinds, capabilities, config paths, passthrough, bare launch argv
+- `test/aishell/cli_test.clj`: setup flag, empty and explicit setup state,
+  `--reuse-config`, help ordering, subcommand pass-through
+- `test/aishell/docker/volume_test.clj`: install commands and the hash.
+  Do not edit `harness-hash-matches-the-pre-registry-derivation`; add an
+  opt-in hash test like `copilot-hash-is-opt-in` so existing users' volume
+  hashes are proven unchanged
+- `test/aishell/docker/run_test.clj`: config mounts, `harness-api-keys`,
+  runtime env, aliases. Rebind `run/host-env` to control which passthrough
+  variables look set
+- `test/aishell/check_test.clj`, `info_test.clj`, `output_test.clj`: the
+  status and summary output that names each harness
 
----
+### Step 3: Documentation
 
-### Step 5: Environment Variables
+Update `README.md`, `docs/HARNESSES.md` (section plus the comparison table),
+`docs/CONFIGURATION.md`, `llm.txt`, the `CONTEXT.md` glossary and
+`CHANGELOG.md`. Add a `docs/TROUBLESHOOTING.md` entry if the harness has
+authentication quirks. Use "Harness" for the concept; the glossary avoids
+"agent", "tool" and "AI".
 
-**File:** `src/aishell/docker/run.clj`
+### Checklist
 
-Add the API key environment variable to `env-passthrough-keys`:
-
-```clojure
-(def env-passthrough-keys
-  "Environment variables to pass from host to container when set."
-  [;; Harness-specific keys
-   "ANTHROPIC_API_KEY"
-   "OPENAI_API_KEY"
-   "CODEX_API_KEY"
-   "GEMINI_API_KEY"
-   "GOOGLE_API_KEY"
-   "PI_CODING_AGENT_DIR"
-   "PI_SKIP_VERSION_CHECK"
-   ;; ADD YOUR HARNESS HERE:
-   "CURSOR_API_KEY"
-   ;; ...
-```
-
-**Pattern:** Add to the vector under the appropriate comment group.
-
-**Common naming conventions:**
-- `{HARNESS}_API_KEY` - Most common
-- `{PROVIDER}_API_KEY` - Provider-specific (OPENAI_API_KEY, etc.)
-
-**Checklist:**
-- [ ] Added env var to `env-passthrough-keys`
-- [ ] Used correct variable name from harness docs
-- [ ] Added to appropriate comment group
-- [ ] Tested passthrough works (set on host, verify in container)
-
----
-
-### Step 6: State Schema
-
-**File:** `src/aishell/state.clj`
-
-The state file records which harnesses are installed and their versions.
-
-**Add to state writes:**
-
-In `cli.clj` `handle-setup` and `handle-update`:
-```clojure
-(state/write-state
-  {:with-cursor (:enabled? cursor-config)
-   :cursor-version (:version cursor-config)
-   ;; ...
-```
-
-**State schema:**
-```edn
-{:with-claude true
- :claude-version "2.0.22"
- :with-cursor true
- :cursor-version "1.0.5"
- :image-tag "aishell:base"
- :build-time "2026-01-25T12:00:00Z"
- :dockerfile-hash "abc123..."}
-```
-
-**Checklist:**
-- [ ] Added `:with-{harness}` boolean
-- [ ] Added `:{harness}-version` string
-- [ ] State persists after build
-- [ ] State used in `handle-update` to preserve config
-
----
-
-### Step 7: Documentation
-
-Update these files to cover the new harness:
-
-**a. README.md:**
-```markdown
-# Build with Cursor
-aishell setup --with-cursor
-
-# Build with specific version
-aishell setup --with-cursor=1.0.5
-```
-
-**b. docs/HARNESSES.md:**
-
-Add a section following the existing pattern:
-- Overview
-- Installation
-- Authentication (OAuth, API Key, both)
-- Container-specific notes
-- Usage examples
-- Troubleshooting
-
-**c. docs/TROUBLESHOOTING.md:**
-
-Add a troubleshooting section if the harness has auth quirks.
-
-**Checklist:**
-- [ ] Added to README.md usage examples
-- [ ] Added section to docs/HARNESSES.md
-- [ ] Added auth instructions
-- [ ] Added comparison table entry
-- [ ] Added troubleshooting if needed
+- [ ] Descriptor added in display order; `clj-kondo --lint src test` clean
+- [ ] `bb test` passes with the new harness in every table-driven expectation
+- [ ] Existing harness-volume hashes unchanged when the harness is disabled
+- [ ] No harness-specific branch outside `harness.clj`
+- [ ] Documentation and changelog updated
 
 ---
 
@@ -889,11 +625,9 @@ Windows doesn't have `chmod`:
 
 ### Follow Existing Patterns
 
-When adding a new harness, mirror existing harnesses:
-
-1. Use the Claude Code integration as the reference implementation
-2. Copy the Codex or Gemini pattern (both use npm global install)
-3. Keep structure parallel: if Claude has X, your harness should too
+When adding a new harness, add a descriptor to the registry and let the
+existing derivations pick it up; see [Adding a New Harness](#adding-a-new-harness).
+The Copilot descriptor is the reference for an npm harness.
 
 ### Error Handling
 
@@ -917,7 +651,7 @@ Use try/catch for recoverable errors:
 
 ### Before Submitting
 
-- [ ] Code follows existing patterns (compare to claude, codex, gemini, pi)
+- [ ] Code follows existing patterns (compare to the claude, codex, copilot, gemini and pi descriptors)
 - [ ] Docstrings added to new functions
 - [ ] Tested locally (build, run, config mount, env passthrough)
 - [ ] Documentation updated (README, HARNESSES, TROUBLESHOOTING)
@@ -978,28 +712,22 @@ Add support for [Harness Name] integration.
 
 ### Adding Optional Dependencies
 
-For harnesses that require system packages:
-
-```dockerfile
-# In templates.clj, add to base RUN block or create conditional:
-RUN if [ "$WITH_CURSOR" = "true" ]; then \
-        apt-get update && \
-        apt-get install -y libfoo-dev && \
-        rm -rf /var/lib/apt/lists/*; \
-    fi
-```
+Harnesses install into the shared harness volume, not the image. A harness
+that needs a system package the foundation image lacks needs that package
+added to the foundation Dockerfile in `src/aishell/docker/templates.clj`,
+which bumps the image for every user; prefer harnesses whose npm package or
+tarball is self-contained.
 
 ### Handling Multiple Config Locations
 
-Some tools store config in multiple directories:
+Some harnesses keep state in more than one place. List each one in the
+descriptor's `:config-paths`; the mount pipeline creates the host path when
+absent and mounts it at the matching container home path:
 
 ```clojure
-(defn harness-config-mounts []
-  (let [home (util/get-home)
-        config-paths [[home "/.cursor") (str home "/.cursor")]
-                      [home "/.config/cursor") (str home "/.config/cursor")]
-                      [home "/.local/share/cursor") (str home "/.local/share/cursor")]]]
-    ;; ...
+:config-paths [{:path [".cursor"] :type :dir}
+               {:path [".config" "cursor"] :type :dir}
+               {:path [".cursor.json"] :type :file}]
 ```
 
 ### Version Syntax Variations
@@ -1013,6 +741,6 @@ Check each harness's documentation for the correct version syntax.
 
 ## Questions?
 
-- Review existing integrations (claude, codex, gemini, pi)
+- Review the existing descriptors in `src/aishell/harness.clj`
 - See [ARCHITECTURE.md](ARCHITECTURE.md) for system design
 - Ask in GitHub Discussions or Issues

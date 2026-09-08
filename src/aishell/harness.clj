@@ -4,7 +4,8 @@
 
    A descriptor is pure data — no functions. It records one Harness's identity,
    canonical label, state and version keys, capabilities, install source,
-   config paths and passthrough environment variables. Capabilities are
+   config paths, passthrough environment variables and fixed runtime
+   environment policy. Capabilities are
    presence-based where that reads naturally (no `:alias` key means no shell
    alias, no `:config-paths` means nothing to mount) and explicit booleans
    where absence would be ambiguous (`:interactive?`, `:pre-start?`,
@@ -42,10 +43,13 @@
 ;;   :credentials-file-env     env var naming a host credentials file to mount
 ;;                             read-only; absent when the harness has none
 ;;   :env-passthrough          host env vars forwarded when set, in declared order
+;;   :runtime-env              fixed runtime environment policy: {"VAR" "value"}
+;;                             entries applied when enabled; they override
+;;                             ordinary config `env` entries
 ;; ---------------------------------------------------------------------------
 
 (def registry
-  "The six harnesses, in user-facing display order."
+  "Every supported harness, in user-facing display order."
   [{:id :claude
     :label "Claude Code"
     :subcommand "claude"
@@ -95,6 +99,21 @@
     :install {:kind :npm :package "@openai/codex"}
     :config-paths [{:path [".codex"] :type :dir}]
     :env-passthrough ["OPENAI_API_KEY" "CODEX_API_KEY"]}
+
+   {:id :copilot
+    :label "GitHub Copilot CLI"
+    :subcommand "copilot"
+    :state-key :with-copilot
+    :version-key :copilot-version
+    :interactive? true
+    :pre-start? true
+    :accepts-config-defaults? true
+    :volume-participant? true
+    :alias {:always? true}
+    :install {:kind :npm :package "@github/copilot"}
+    :config-paths [{:path [".copilot"] :type :dir}]
+    :env-passthrough ["COPILOT_GITHUB_TOKEN" "COPILOT_GH_HOST"]
+    :runtime-env {"COPILOT_AUTO_UPDATE" "false"}}
 
    {:id :gemini
     :label "Gemini CLI"

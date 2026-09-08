@@ -93,10 +93,12 @@
 (deftest harness-report-uses-canonical-labels
   (let [out (with-out-str (check-harnesses {:with-claude true
                                             :with-codex true :codex-version "1.2.3"
+                                            :with-copilot true :copilot-version "0.0.339"
                                             :with-gitleaks true}))]
     (testing "every harness is reported, by its canonical label"
       (is (str/includes? out "Claude Code installed"))
       (is (str/includes? out "Codex CLI installed (1.2.3)"))
+      (is (str/includes? out "GitHub Copilot CLI installed (0.0.339)"))
       (is (str/includes? out "Pi coding agent not installed"))
       (is (str/includes? out "Gemini CLI not installed"))
       (is (str/includes? out "OpenCode not installed"))

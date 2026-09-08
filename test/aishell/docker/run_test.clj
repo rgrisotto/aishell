@@ -339,7 +339,7 @@
 
 (def ^:private all-enabled
   {:with-claude true :with-opencode true :with-codex true
-   :with-gemini true :with-pi true :with-gitleaks true})
+   :with-copilot true :with-gemini true :with-pi true :with-gitleaks true})
 
 (defn- alias-value
   "The value of HARNESS_ALIAS_<NAME> in a -e flag vector, or nil when absent."
@@ -356,6 +356,7 @@
   {:claude ["--model" "opus"]
    :opencode ["-m" "gpt"]
    :codex ["--full-auto"]
+   :copilot ["--model" "gpt-5"]
    :gemini ["-d"]
    :pi ["-y"]})
 
@@ -378,16 +379,23 @@
 
 (deftest alias-emission-rules-come-from-descriptor-capabilities
   (with-redefs [harness/skip-permissions? (constantly true)]
-    (testing "claude and codex always emit; the rest only when they carry args"
-      (is (= ["claude" "codex"] (alias-names (alias-env-args {} all-enabled)))))
+    (testing "claude, codex and copilot always emit; the rest only when they carry args"
+      (is (= ["claude" "codex" "copilot"] (alias-names (alias-env-args {} all-enabled)))))
     (testing "config defaults make the remaining harnesses emit"
-      (is (= ["claude" "opencode" "codex" "gemini" "pi"]
+      (is (= ["claude" "opencode" "codex" "copilot" "gemini" "pi"]
              (alias-names (alias-env-args {:harness_args every-harness-args} all-enabled)))))
     (testing "gitleaks has no alias even with config defaults"
       (is (nil? (alias-value (alias-env-args {:harness_args {:gitleaks ["--redact"]}} all-enabled)
                              "gitleaks"))))
     (testing "a disabled harness emits nothing"
       (is (empty? (alias-names (alias-env-args {:harness_args every-harness-args} {})))))))
+
+(deftest copilot-alias-never-carries-a-permissions-bypass
+  (testing "the in-Sandbox alias is bare even with skip-permissions on"
+    (with-redefs [harness/skip-permissions? (constantly true)]
+      (let [value (alias-value (alias-env-args {} all-enabled) "copilot")]
+        (is (= "copilot" value))
+        (is (not-any? #{"--allow-all" "--yolo"} (str/split value #" ")))))))
 
 (deftest skip-permissions-affects-both-paths-identically
   (testing "claude's alias carries the flag exactly when the launch argv does"
@@ -417,17 +425,19 @@
 
 (def ^:private config-files @#'run/harness-config-files)
 (def ^:private api-env-args #'run/build-api-env-args)
+(def ^:private runtime-env-args #'run/build-harness-runtime-env-args)
 
 (deftest harness-config-dirs-table
   (testing "home-relative config paths per harness state key, in registry order"
     (is (= {:with-claude   [[".claude"] [".claude.json"]]
             :with-opencode [[".config" "opencode"] [".local" "share" "opencode"]]
             :with-codex    [[".codex"]]
+            :with-copilot  [[".copilot"]]
             :with-gemini   [[".gemini"]]
             :with-pi       [[".pi"]]}
            run/harness-config-dirs)))
   (testing "iteration order is preserved for mount and info output"
-    (is (= [:with-claude :with-opencode :with-codex :with-gemini :with-pi]
+    (is (= [:with-claude :with-opencode :with-codex :with-copilot :with-gemini :with-pi]
            (vec (keys run/harness-config-dirs)))))
   (testing "gitleaks mounts no host config"
     (is (nil? (get run/harness-config-dirs :with-gitleaks)))))
@@ -442,6 +452,7 @@
             :with-opencode ["OPENAI_API_KEY" "ANTHROPIC_API_KEY" "GROQ_API_KEY"
                             "OPENCODE_API_KEY" "AZURE_OPENAI_API_KEY" "AZURE_OPENAI_ENDPOINT"]
             :with-codex    ["OPENAI_API_KEY" "CODEX_API_KEY"]
+            :with-copilot  ["COPILOT_GITHUB_TOKEN" "COPILOT_GH_HOST"]
             :with-gemini   ["GEMINI_API_KEY" "GOOGLE_API_KEY" "GOOGLE_CLOUD_PROJECT"
                             "GOOGLE_CLOUD_LOCATION" "GOOGLE_APPLICATION_CREDENTIALS"]
             :with-pi       ["PI_CODING_AGENT_DIR" "PI_SKIP_VERSION_CHECK"]}
@@ -449,12 +460,22 @@
   (testing "gitleaks passes no API keys through"
     (is (nil? (get run/harness-api-keys :with-gitleaks)))))
 
+(deftest copilot-does-not-forward-broad-github-or-cache-vars
+  (testing "GH_TOKEN, GITHUB_TOKEN, COPILOT_HOME, and COPILOT_CACHE_HOME are not declared for Copilot"
+    (is (not-any? #{"GH_TOKEN" "GITHUB_TOKEN" "COPILOT_HOME" "COPILOT_CACHE_HOME"}
+                  (get run/harness-api-keys :with-copilot))))
+  (testing "even when all of them are set on the host, only the two declared vars reach the -e args"
+    (let [host {"GH_TOKEN" "gh" "GITHUB_TOKEN" "github"
+                "COPILOT_HOME" "/elsewhere" "COPILOT_CACHE_HOME" "/cache"
+                "COPILOT_GITHUB_TOKEN" "scoped" "COPILOT_GH_HOST" "ghe.example.com"}]
+      (with-redefs [run/host-env host]
+        (is (= ["-e" "COPILOT_GITHUB_TOKEN=scoped" "-e" "COPILOT_GH_HOST=ghe.example.com"]
+               (api-env-args {:with-copilot true})))))))
+
 (deftest api-env-args-only-cover-enabled-harnesses
   (testing "a disabled harness contributes no -e flag even when the var is set"
-    (let [set-var (first (filter #(System/getenv %) (get run/harness-api-keys :with-gemini)))]
-      (when set-var
-        (is (empty? (filter #(str/starts-with? (str %) (str set-var "="))
-                            (api-env-args {:with-claude true})))))))
+    (with-redefs [run/host-env {"GEMINI_API_KEY" "g" "ANTHROPIC_API_KEY" "a"}]
+      (is (= ["-e" "ANTHROPIC_API_KEY=a"] (api-env-args {:with-claude true})))))
   (testing "no harness enabled means no API env args at all"
     (is (empty? (api-env-args {}))))
   (testing "unset vars are never forwarded as empty values"
@@ -463,6 +484,45 @@
                                                                :with-codex true
                                                                :with-gemini true
                                                                :with-pi true})))))
+
+(deftest copilot-runtime-environment-is-enabled-and-fixed
+  (testing "only enabled Copilot contributes its fixed update policy"
+    (is (= [] (runtime-env-args {})))
+    (is (= ["-e" "COPILOT_AUTO_UPDATE=false"]
+           (runtime-env-args {:with-copilot true}))))
+  (testing "ordinary config env comes first, fixed policy next, docker_args last"
+    (let [home (str (fs/create-temp-dir))
+          project (str (fs/create-temp-dir))]
+      (try
+        (with-redefs [util/get-home (constantly home)]
+          (let [args (run/build-docker-args
+                      {:project-dir project
+                       :image-tag "aishell:test"
+                       :config {:env ["COPILOT_AUTO_UPDATE=true"]
+                                :docker_args ["-e" "COPILOT_AUTO_UPDATE=escape"]}
+                       :state {:with-copilot true}
+                       :git-identity {}
+                       :skip-pre-start false
+                       :skip-interactive true})
+                index (fn [value] (.indexOf args value))]
+            (is (< (index "COPILOT_AUTO_UPDATE=true")
+                   (index "COPILOT_AUTO_UPDATE=false")
+                   (index "COPILOT_AUTO_UPDATE=escape")
+                   (index "aishell:test")))))
+        (finally
+          (fs/delete-tree home)
+          (fs/delete-tree project))))))
+
+(deftest copilot-config-mount-is-scoped-to-enabled-state
+  (let [home (str (fs/create-temp-dir))]
+    (try
+      (with-redefs [util/get-home (constantly home)]
+        (is (empty? (build-mounts {} home {})))
+        (is (= ["-v" (str (fs/path home ".copilot") ":" (fs/path home ".copilot"))]
+               (vec (build-mounts {:with-copilot true} home {}))))
+        (is (fs/directory? (fs/path home ".copilot"))))
+      (finally
+        (fs/delete-tree home)))))
 
 (deftest credentials-file-mount-follows-the-gemini-descriptor
   (testing "the mount is offered only when Gemini is enabled"

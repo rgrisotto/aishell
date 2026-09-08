@@ -37,7 +37,7 @@ graph TB
 
     subgraph Docker["Docker Container"]
         Entry[Entrypoint<br/>entrypoint.sh]
-        Harness[AI Harness/Tools<br/>claude/opencode/codex/gemini/pi/vscode]
+        Harness[AI Harness/Tools<br/>claude/opencode/codex/copilot/gemini/pi/vscode]
         Project[Project Files<br/>mounted at same path]
         Tools[Dev Tools<br/>node, git, bb, etc.]
     end
@@ -133,7 +133,7 @@ The base image is the intermediate layer between foundation and project extensio
 Docker volumes store harness tools and mount them into containers:
 
 **Contents:**
-- `/tools/npm` - npm global packages (@anthropic-ai/claude-code, @openai/codex, @google/gemini-cli, @earendil-works/pi-coding-agent)
+- `/tools/npm` - npm global packages (@anthropic-ai/claude-code, @openai/codex, @github/copilot, @google/gemini-cli, @earendil-works/pi-coding-agent)
 - `/tools/bin` - Go binaries (opencode)
 
 **Volume naming:** `aishell-harness-{12-char-hash}` where hash is computed from:

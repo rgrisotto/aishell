@@ -17,6 +17,17 @@
   (testing "hashes for OpenSpec-free configs are unchanged by the removal"
     (is (= "65b8e9d41105" (vol/compute-harness-hash claude-only)))))
 
+(deftest copilot-hash-is-opt-in
+  (testing "disabled Copilot does not alter an existing volume hash"
+    (is (= (vol/compute-harness-hash claude-only)
+           (vol/compute-harness-hash (assoc claude-only
+                                            :with-copilot false
+                                            :copilot-version "0.0.339")))))
+  (testing "enabled Copilot participates with its normalized version"
+    (is (= [[:copilot "0.0.339"]]
+           (vol/normalize-harness-config {:with-copilot true
+                                          :copilot-version "0.0.339"})))))
+
 (deftest install-commands-omit-removed-openspec
   (testing "a stale OpenSpec flag installs no npm package"
     (is (not (re-find #"openspec"
@@ -123,7 +134,15 @@
     (is (= (str "export NPM_CONFIG_PREFIX=/tools/npm"
                 " && npm install -g @google/gemini-cli@latest"
                 " && chmod -R a+rwX /tools")
-           (vol/build-install-commands {:with-gemini true})))))
+           (vol/build-install-commands {:with-gemini true}))))
+  (testing "Copilot accepts latest and exact versions"
+    (doseq [[version suffix] [[nil "latest"]
+                              ["1.2.3" "1.2.3"]]]
+      (is (= (str "export NPM_CONFIG_PREFIX=/tools/npm"
+                  " && npm install -g @github/copilot@" suffix
+                  " && chmod -R a+rwX /tools")
+             (vol/build-install-commands (cond-> {:with-copilot true}
+                                           version (assoc :copilot-version version))))))))
 
 (deftest install-commands-for-the-opencode-tarball
   (testing "unpinned OpenCode downloads the latest release asset"
