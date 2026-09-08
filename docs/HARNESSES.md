@@ -11,6 +11,7 @@ Harnesses are AI CLI tools that aishell runs in isolated containers. Each harnes
 - **Claude Code** - Anthropic's autonomous coding agent
 - **OpenCode** - Multi-provider AI coding agent (Anthropic, OpenAI, Google, etc.)
 - **Codex CLI** - OpenAI's ChatGPT integration for coding
+- **GitHub Copilot CLI** - GitHub's coding agent for the terminal
 - **Gemini CLI** - Google's Gemini models for development
 - **Pi** - Mario Zechner's autonomous coding agent
 
@@ -43,14 +44,12 @@ aishell volumes prune
 
 ## Harness Comparison
 
-| Feature | Claude Code | OpenCode | Codex CLI | Gemini CLI | Pi |
-|---------|-------------|----------|-----------|------------|-----|
-| Provider | Anthropic | Multiple | OpenAI | Google | Mario Zechner |
-| Auth Methods | OAuth, API Key | Per-provider | OAuth, API Key | OAuth, API Key | API Key |
-| Container Auth | Copy-paste URL | Standard | Device code | Auth on host first | Standard |
-| Vertex AI | No | Yes | No | Yes | No |
-| Config Dir | ~/.claude | ~/.config/opencode | ~/.codex | ~/.gemini | ~/.pi |
-| Best For | Autonomous coding | Multi-model flexibility | ChatGPT integration | Gemini models | Autonomous coding |
+| Feature | Claude Code | OpenCode | Codex CLI | GitHub Copilot CLI | Gemini CLI | Pi |
+|---------|-------------|----------|-----------|--------------------|------------|-----|
+| Provider | Anthropic | Multiple | OpenAI | GitHub | Google | Mario Zechner |
+| Auth Methods | OAuth, API Key | Per-provider | OAuth, API Key | Device OAuth, token | OAuth, API Key | API Key |
+| Config Dir | ~/.claude | ~/.config/opencode | ~/.codex | ~/.copilot | ~/.gemini | ~/.pi |
+| Best For | Autonomous coding | Multi-model flexibility | ChatGPT integration | GitHub Copilot workflows | Gemini models | Autonomous coding |
 
 ## Claude Code
 
@@ -396,6 +395,54 @@ harnesses:
 3. **Model selection:** GPT-4o recommended for coding tasks
 4. **API key distinction:** Remember `OPENAI_API_KEY` vs `CODEX_API_KEY` usage
 
+## GitHub Copilot CLI
+
+GitHub Copilot CLI is GitHub's coding agent for terminal workflows.
+
+### Installation
+
+```bash
+aishell setup --with-copilot                 # @github/copilot@latest
+aishell setup --with-copilot=1.2.3           # exact version
+```
+
+The package installs into the shared Harness volume. Use `aishell update` to
+refresh it; aishell sets `COPILOT_AUTO_UPDATE=false` in Copilot-enabled
+Sandboxes so Copilot does not modify the read-only volume or defeat a pin.
+
+### Authentication and persistence
+
+Run `aishell copilot` and complete the device-code OAuth flow. The complete
+host `~/.copilot` directory is mounted at the same path in the Sandbox, so
+login, settings, plugins, saved permissions, and sessions persist.
+
+If present on the host, `COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST` are
+forwarded automatically, and only when Copilot is enabled. `GH_TOKEN`,
+`GITHUB_TOKEN`, and `GH_HOST` are deliberately not automatic; opt into any of
+them through the normal `env:` configuration. `COPILOT_HOME`,
+`COPILOT_CACHE_HOME`, and external cache locations are not forwarded or
+mounted.
+
+### Usage
+
+```bash
+aishell copilot
+aishell copilot --help
+```
+
+Arguments under `harness_args.copilot` are prepended to command-line arguments
+for both direct launches and the `copilot` alias inside an interactive Sandbox:
+
+```yaml
+harness_args:
+  copilot:
+    - "--model"
+    - "gpt-5"
+```
+
+Copilot retains its own permission prompts by default; aishell never injects
+`--allow-all` or `--yolo`.
+
 ## Gemini CLI
 
 ### Overview
@@ -611,7 +658,7 @@ Run multiple named containers simultaneously and reconnect to them.
 
 ### Starting Named Containers
 
-Each container gets a default name matching its harness (`claude`, `opencode`, `codex`, `gemini`, `pi`, `vscode`, `shell`). Override with `--name`:
+Each container gets a default name matching its harness (`claude`, `opencode`, `codex`, `copilot`, `gemini`, `pi`, `vscode`, `shell`). Override with `--name`:
 
 ```bash
 # Start Claude (default name: claude)
@@ -697,7 +744,7 @@ docker stop aishell-<hash>-claude
 
 Containers follow the naming pattern `aishell-{project-hash}-{name}`:
 - **project-hash**: First 8 characters of the SHA-256 of your project directory path
-- **name**: Defaults to the harness name (`claude`, `opencode`, `codex`, `gemini`, `pi`, `vscode`, `shell`); override with `--name`
+- **name**: Defaults to the harness name (`claude`, `opencode`, `codex`, `copilot`, `gemini`, `pi`, `vscode`, `shell`); override with `--name`
 
 ## Running Multiple Harnesses
 
@@ -710,10 +757,10 @@ Build with any combination:
 aishell setup --with-claude --with-opencode
 
 # Three harnesses
-aishell setup --with-claude --with-opencode --with-codex
+aishell setup --with-claude --with-opencode --with-codex --with-copilot
 
 # All harnesses
-aishell setup --with-claude --with-opencode --with-codex --with-gemini --with-pi
+aishell setup --with-claude --with-opencode --with-codex --with-copilot --with-gemini --with-pi
 ```
 
 Each added harness increases image size.

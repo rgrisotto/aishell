@@ -2,7 +2,7 @@
 
 > Docker sandbox for running AI coding agents in ephemeral containers.
 
-aishell runs AI coding agents (Claude Code, OpenCode, Codex CLI, Gemini CLI) inside isolated Docker containers. It preserves paths, forwards git identity, manages configuration and mounts, and scans for secrets — replacing long `docker run` commands.
+aishell runs AI coding agents (Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, Gemini CLI, Pi) inside isolated Docker containers. It preserves paths, forwards git identity, manages configuration and mounts, and scans for secrets — replacing long `docker run` commands.
 
 Version: 4.1.0
 License: MIT
@@ -56,12 +56,14 @@ Build the foundation image and install harnesses. Run once, or again to change h
 aishell setup --with-claude
 aishell setup --with-claude --with-opencode
 aishell setup --with-claude=2.0.22
+aishell setup --with-copilot=1.2.3
 ```
 
 Options:
 - `--with-claude[=VERSION]` - Install Claude Code. Optionally pin a version.
 - `--with-opencode[=VERSION]` - Install OpenCode.
 - `--with-codex[=VERSION]` - Install Codex CLI.
+- `--with-copilot[=VERSION]` - Install GitHub Copilot CLI. Optionally pin a version.
 - `--with-gemini[=VERSION]` - Install Gemini CLI.
 - `--with-gitleaks` - Include Gitleaks secret scanner.
 - `--force` - Rebuild everything, bypass Docker cache.
@@ -76,6 +78,7 @@ aishell claude
 aishell claude --model sonnet
 aishell opencode
 aishell codex
+aishell copilot
 aishell gemini
 aishell gitleaks detect --verbose
 ```
@@ -323,6 +326,9 @@ harness_args:
   opencode:
     - "--provider"
     - "anthropic"
+  copilot:
+    - "--model"
+    - "gpt-5"
 ```
 
 Argument order: [global defaults] + [project defaults] + [CLI args].
@@ -430,12 +436,21 @@ Each harness authenticates differently:
 - **OAuth:** Run `aishell codex`. For containers, use `codex login --device-auth` (displays a code to enter at a URL).
 - **API key:** Set `OPENAI_API_KEY` for interactive mode, or `CODEX_API_KEY` for `codex exec` only.
 
+### GitHub Copilot CLI
+
+- Run `aishell copilot` and follow the device-code OAuth flow.
+- Host `~/.copilot` is mounted only when Copilot is enabled, preserving login, settings, plugins, saved permissions, and sessions.
+- `COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST` pass through automatically only for Copilot-enabled Sandboxes.
+- `GH_TOKEN`, `GITHUB_TOKEN`, and `GH_HOST` require explicit `env` configuration; `COPILOT_HOME` and `COPILOT_CACHE_HOME` are not automatic.
+- aishell forces `COPILOT_AUTO_UPDATE=false`; update or change the npm version/tag with `aishell update` or `aishell setup`.
+- `harness_args.copilot` applies to both direct launches and the in-Sandbox alias. No `--allow-all` or `--yolo` is injected.
+
 ### Gemini CLI
 
 - **OAuth:** Authenticate on the host first (`gemini login`), then run `aishell gemini`. Gemini CLI lacks device code flow in containers.
 - **API key:** Set `GEMINI_API_KEY` or `GOOGLE_API_KEY`.
 
-Harness config directories (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`) mount from the host, so authentication persists between sessions.
+Harness config directories (`~/.claude`, `~/.codex`, `~/.copilot`, `~/.gemini`, `~/.config/opencode`) mount from the host, so authentication persists between sessions.
 
 ---
 
@@ -542,7 +557,7 @@ aishell claude
 ### Multiple harnesses
 
 ```
-aishell setup --with-claude --with-opencode --with-codex --with-gemini
+aishell setup --with-claude --with-opencode --with-codex --with-copilot --with-gemini
 aishell claude
 aishell opencode
 ```
@@ -637,7 +652,7 @@ aishell handles this automatically. If you mount your host `~/.gitconfig`, the s
 
 ### Credentials not persisting between sessions
 
-Verify harness config directories exist on the host (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`).
+Verify harness config directories exist on the host (`~/.claude`, `~/.codex`, `~/.copilot`, `~/.gemini`, `~/.config/opencode`).
 
 ### Port not accessible from host
 

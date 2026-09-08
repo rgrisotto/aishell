@@ -506,6 +506,17 @@
          (filter #(System/getenv %))
          (mapcat (fn [var] ["-e" (str var "=" (System/getenv var))])))))
 
+(defn- build-harness-runtime-env-args
+  "Build fixed -e flags declared by enabled harnesses. Applied after ordinary
+   config env so aishell-owned runtime policy wins unless the user deliberately
+   overrides it through the low-level docker_args escape hatch."
+  [state]
+  (into []
+        (comp (filter #(get state (:state-key %)))
+              (mapcat :runtime-env)
+              (mapcat (fn [[var value]] ["-e" (str var "=" value)])))
+        harness/registry))
+
 (def ^:private harness-credential-files
   "Setup-state flag -> env var naming a host credentials file the harness reads.
    Derived from descriptors carrying :credentials-file-env (today: Gemini)."
@@ -596,6 +607,9 @@
         ;; Config: env
         (cond-> (:env config)
           (into (build-env-args (:env config))))
+
+        ;; Harness-owned runtime environment overrides ordinary config env
+        (into (build-harness-runtime-env-args state))
 
         ;; Config: ports
         (cond-> (:ports config)

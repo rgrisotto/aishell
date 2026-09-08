@@ -1,6 +1,6 @@
 # aishell
 
-Docker sandbox for running AI coding agents (Claude Code, OpenCode, Codex CLI, Gemini CLI, Pi) in ephemeral containers.
+Docker sandbox for running AI coding agents (Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, Gemini CLI, Pi) in ephemeral containers.
 
 ## Why Docker?
 
@@ -206,15 +206,17 @@ When you run `aishell claude`, aishell launches an ephemeral Docker container wi
 aishell setup --with-claude
 aishell setup --with-opencode
 aishell setup --with-codex
+aishell setup --with-copilot
 aishell setup --with-gemini
 aishell setup --with-pi
 
 # Set up with multiple harnesses
-aishell setup --with-claude --with-opencode --with-codex --with-gemini --with-pi
+aishell setup --with-claude --with-opencode --with-codex --with-copilot --with-gemini --with-pi
 
 # Set up with specific versions
 aishell setup --with-claude=2.0.22
 aishell setup --with-codex=0.1.2025062501
+aishell setup --with-copilot=0.0.339
 
 # Reuse the last saved setup config, overriding only what you specify
 aishell setup --reuse-config
@@ -232,6 +234,7 @@ aishell
 aishell claude
 aishell opencode
 aishell codex
+aishell copilot
 aishell gemini
 aishell pi
 
@@ -439,7 +442,7 @@ For custom detection patterns, allowlists, and freshness configuration, see [Con
 
 ## Authentication
 
-aishell mounts harness configuration directories from your host (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.pi`, `~/.config/opencode`, `~/.local/share/opencode`), so authentication persists between container sessions.
+aishell mounts harness configuration directories from your host (`~/.claude`, `~/.codex`, `~/.copilot`, `~/.gemini`, `~/.pi`, `~/.config/opencode`, `~/.local/share/opencode`), so authentication persists between container sessions.
 
 ### Claude Code
 
@@ -474,6 +477,21 @@ export OPENAI_API_KEY="your-key-here"  # For login
 export CODEX_API_KEY="your-key-here"   # Only works with `codex exec`, not interactive
 aishell codex
 ```
+
+### GitHub Copilot CLI
+
+Run `aishell copilot` and follow the device-code sign-in flow. Login, settings,
+plugins, saved permissions, and sessions persist in host `~/.copilot`.
+
+For token authentication, aishell automatically forwards only
+`COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST` when Copilot is enabled. Broader
+GitHub variables such as `GH_TOKEN`, `GITHUB_TOKEN`, and `GH_HOST` require an
+explicit `env:` entry. Copilot's self-updater is disabled in the Sandbox;
+use `aishell update` so the configured version stays authoritative.
+
+Persistent defaults under `harness_args.copilot` apply to both
+`aishell copilot` and the `copilot` alias inside an interactive Sandbox. aishell
+does not add `--allow-all` or `--yolo`.
 
 ### Gemini CLI
 
@@ -524,6 +542,8 @@ aishell automatically passes harness-specific API keys to containers when the co
 | `ANTHROPIC_API_KEY` | Claude, OpenCode | Required for API key auth |
 | `OPENAI_API_KEY` | Codex, OpenCode | Used by multiple harnesses |
 | `CODEX_API_KEY` | Codex | Only works with `codex exec` mode |
+| `COPILOT_GITHUB_TOKEN` | GitHub Copilot CLI | Token authentication |
+| `COPILOT_GH_HOST` | GitHub Copilot CLI | Enterprise Cloud/data-residency host |
 | `GEMINI_API_KEY` | Gemini | From Google AI Studio |
 | `GOOGLE_API_KEY` | Gemini | Alternative to GEMINI_API_KEY |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Gemini | Path to JSON key file (Vertex AI) |
@@ -542,6 +562,8 @@ These variables are **not** auto-passed. Add them to your `config.yaml` to forwa
 
 ```yaml
 env:
+  GH_TOKEN: passthrough
+  GH_HOST: passthrough
   GITHUB_TOKEN: passthrough
   AWS_ACCESS_KEY_ID: passthrough
   AWS_SECRET_ACCESS_KEY: passthrough

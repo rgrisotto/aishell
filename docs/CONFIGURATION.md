@@ -641,7 +641,7 @@ pre_start: "echo 'Step 1' && echo 'Step 2'"
 
 **Type:** Map of harness name to list (or string)
 
-**Harness names:** `claude`, `opencode`, `codex`, `gemini`, `pi`, `vscode`
+**Harness names:** `claude`, `opencode`, `codex`, `copilot`, `gemini`, `pi`, `vscode`
 
 **Example:**
 
@@ -662,6 +662,11 @@ harness_args:
   # Codex defaults
   codex:
     - "--verbose"
+
+  # GitHub Copilot CLI defaults
+  copilot:
+    - "--model"
+    - "gpt-5"
 
   # Gemini defaults
   gemini:
@@ -687,6 +692,12 @@ harness_args:
 - Defaults precede CLI args
 - For positional flags, the last occurrence wins (CLI overrides defaults)
 - String values auto-convert to single-element lists
+- Copilot defaults apply identically to `aishell copilot` and the in-Sandbox
+  `copilot` alias; aishell does not add `--allow-all` or `--yolo`
+- Copilot-enabled Sandboxes mount host `~/.copilot`, pass through only
+  `COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST`, and force
+  `COPILOT_AUTO_UPDATE=false`. Add `GH_TOKEN`, `GITHUB_TOKEN`, or `GH_HOST`
+  explicitly under `env` if required.
 
 **Merge behavior:** Per-harness lists concatenate (global defaults + project defaults).
 
@@ -722,6 +733,7 @@ claude --verbose --model sonnet --workspace /workspace
 | Claude | `--model sonnet` | Default model |
 | OpenCode | `--provider anthropic` | API provider |
 | Codex | `--verbose` | Debug output |
+| GitHub Copilot CLI | `--model gpt-5` | Default model |
 | Gemini | `--model gemini-2.0-flash-exp` | Specific model |
 | Pi | `--print hello` | Default prompt |
 
@@ -1315,16 +1327,17 @@ harness_args:
 aishell setup --with-claude
 
 # Multiple harnesses
-aishell setup --with-claude --with-opencode --with-codex --with-pi
+aishell setup --with-claude --with-opencode --with-codex --with-copilot --with-pi
 
 # With version pinning
-aishell setup --with-claude=2.0.22 --with-codex=0.1.2025062501
+aishell setup --with-claude=2.0.22 --with-codex=0.1.2025062501 --with-copilot=1.2.3
 ```
 
 **Available harnesses:**
 - `--with-claude` - Anthropic Claude Code
 - `--with-opencode` - Multi-provider OpenCode
 - `--with-codex` - OpenAI Codex CLI
+- `--with-copilot` - GitHub Copilot CLI
 - `--with-gemini` - Google Gemini CLI
 - `--with-pi` - Mario Zechner's Pi coding agent
 
@@ -1333,6 +1346,7 @@ Use `=VERSION` syntax to pin specific versions:
 ```bash
 --with-claude=2.0.22
 --with-codex=0.1.2025062501
+--with-copilot=1.2.3
 ```
 
 Omit version for latest:

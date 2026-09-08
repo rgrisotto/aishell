@@ -67,8 +67,10 @@
 
 (deftest harness-lines-use-canonical-labels
   (testing "each enabled harness prints its canonical label and version"
-    (is (= ["  Claude Code: 2.0.22" "  Pi coding agent: latest"]
+    (is (= ["  Claude Code: 2.0.22" "  GitHub Copilot CLI: 0.0.339"
+            "  Pi coding agent: latest"]
            (format-harnesses {:with-claude true :claude-version "2.0.22"
+                              :with-copilot true :copilot-version "0.0.339"
                               :with-pi true}))))
   (testing "no harnesses reads as None"
     (is (= ["  None"] (format-harnesses {})))))
@@ -77,4 +79,5 @@
   (testing "the state keys that carry host config map to canonical labels"
     (is (= "Pi coding agent" (get harness-labels :with-pi)))
     (is (= "Codex CLI" (get harness-labels :with-codex)))
+    (is (= "GitHub Copilot CLI" (get harness-labels :with-copilot)))
     (is (= "Gemini CLI" (get harness-labels :with-gemini)))))
