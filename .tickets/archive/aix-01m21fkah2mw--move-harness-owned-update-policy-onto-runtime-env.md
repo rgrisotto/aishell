@@ -1,12 +1,13 @@
 ---
 id: aix-01m21fkah2mw
 title: Move harness-owned update policy onto :runtime-env descriptors
-status: open
+status: closed
 type: task
 priority: 3
 mode: afk
 created: '2026-09-08T21:43:15.234763621Z'
-updated: '2026-09-08T22:20:34.858040557Z'
+updated: '2026-09-08T22:22:56.227765321Z'
+closed: '2026-09-08T22:22:56.227765321Z'
 tags:
 - harness
 - registry
@@ -71,3 +72,7 @@ Upstream check for the two remaining Harnesses, against current docs (2026-09-08
 Both are config-file knobs in directories aishell mounts rather than writes, so setting them is the user's call; ADR 0008 says so under Consequences.
 
 No telemetry opt-out was added, per scope. None surfaced as an environment variable during this check; Gemini CLI's telemetry settings live in the same settings.json.
+
+**2026-09-08T22:22:56.227765321Z**
+
+Claude's DISABLE_AUTOUPDATER=1 and pi's PI_SKIP_VERSION_CHECK=true moved onto their descriptors' :runtime-env; the hard-coded run.clj line and pi's passthrough entry are gone. ADR 0008 records the precedence rule, run_test.clj iterates every descriptor declaring the key, and the docs carry a Set-by-aishell entry per harness. Gemini CLI and OpenCode expose the knob in config files only, so neither declares :runtime-env. Committed as f6ac997.
