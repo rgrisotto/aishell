@@ -6,7 +6,7 @@ type: feature
 priority: 2
 mode: afk
 created: '2026-09-08T19:57:46.129924992Z'
-updated: '2026-09-08T21:20:57.010263514Z'
+updated: '2026-09-08T21:43:19.628263500Z'
 closed: '2026-09-08T20:07:08.607879786Z'
 tags:
 - copilot
@@ -36,6 +36,8 @@ acceptance:
   done: true
 - title: clj-kondo --lint src test completes with no lint errors
   done: true
+links:
+- aix-01m21fkah2mw
 ---
 
 ## Problem Statement
