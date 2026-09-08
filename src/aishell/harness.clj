@@ -4,7 +4,8 @@
 
    A descriptor is pure data — no functions. It records one Harness's identity,
    canonical label, state and version keys, capabilities, install source,
-   config paths and runtime environment behavior. Capabilities are
+   config paths, passthrough environment variables and fixed runtime
+   environment policy. Capabilities are
    presence-based where that reads naturally (no `:alias` key means no shell
    alias, no `:config-paths` means nothing to mount) and explicit booleans
    where absence would be ambiguous (`:interactive?`, `:pre-start?`,
@@ -42,8 +43,9 @@
 ;;   :credentials-file-env     env var naming a host credentials file to mount
 ;;                             read-only; absent when the harness has none
 ;;   :env-passthrough          host env vars forwarded when set, in declared order
-;;   :runtime-env              fixed container env entries applied when enabled;
-;;                             these override ordinary config `env` entries
+;;   :runtime-env              fixed runtime environment policy: {"VAR" "value"}
+;;                             entries applied when enabled; they override
+;;                             ordinary config `env` entries
 ;; ---------------------------------------------------------------------------
 
 (def registry

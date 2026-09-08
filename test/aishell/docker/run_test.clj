@@ -390,6 +390,13 @@
     (testing "a disabled harness emits nothing"
       (is (empty? (alias-names (alias-env-args {:harness_args every-harness-args} {})))))))
 
+(deftest copilot-alias-never-carries-a-permissions-bypass
+  (testing "the in-Sandbox alias is bare even with skip-permissions on"
+    (with-redefs [harness/skip-permissions? (constantly true)]
+      (let [value (alias-value (alias-env-args {} all-enabled) "copilot")]
+        (is (= "copilot" value))
+        (is (not-any? #{"--allow-all" "--yolo"} (str/split value #" ")))))))
+
 (deftest skip-permissions-affects-both-paths-identically
   (testing "claude's alias carries the flag exactly when the launch argv does"
     (doseq [skip? [true false]]
@@ -457,19 +464,18 @@
   (testing "GH_TOKEN, GITHUB_TOKEN, COPILOT_HOME, and COPILOT_CACHE_HOME are not declared for Copilot"
     (is (not-any? #{"GH_TOKEN" "GITHUB_TOKEN" "COPILOT_HOME" "COPILOT_CACHE_HOME"}
                   (get run/harness-api-keys :with-copilot))))
-  (testing "even when actually set on the host, none of them reach Copilot's -e args"
-    (let [broad-vars ["GH_TOKEN" "GITHUB_TOKEN" "COPILOT_HOME" "COPILOT_CACHE_HOME"]
-          set-var (first (filter #(System/getenv %) broad-vars))]
-      (when set-var
-        (is (empty? (filter #(str/starts-with? (str %) (str set-var "="))
-                            (api-env-args {:with-copilot true}))))))))
+  (testing "even when all of them are set on the host, only the two declared vars reach the -e args"
+    (let [host {"GH_TOKEN" "gh" "GITHUB_TOKEN" "github"
+                "COPILOT_HOME" "/elsewhere" "COPILOT_CACHE_HOME" "/cache"
+                "COPILOT_GITHUB_TOKEN" "scoped" "COPILOT_GH_HOST" "ghe.example.com"}]
+      (with-redefs [run/host-env host]
+        (is (= ["-e" "COPILOT_GITHUB_TOKEN=scoped" "-e" "COPILOT_GH_HOST=ghe.example.com"]
+               (api-env-args {:with-copilot true})))))))
 
 (deftest api-env-args-only-cover-enabled-harnesses
   (testing "a disabled harness contributes no -e flag even when the var is set"
-    (let [set-var (first (filter #(System/getenv %) (get run/harness-api-keys :with-gemini)))]
-      (when set-var
-        (is (empty? (filter #(str/starts-with? (str %) (str set-var "="))
-                            (api-env-args {:with-claude true})))))))
+    (with-redefs [run/host-env {"GEMINI_API_KEY" "g" "ANTHROPIC_API_KEY" "a"}]
+      (is (= ["-e" "ANTHROPIC_API_KEY=a"] (api-env-args {:with-claude true})))))
   (testing "no harness enabled means no API env args at all"
     (is (empty? (api-env-args {}))))
   (testing "unset vars are never forwarded as empty values"

@@ -6,12 +6,11 @@ type: feature
 priority: 2
 mode: afk
 created: '2026-09-08T19:57:46.129924992Z'
-updated: '2026-09-08T20:07:08.607879786Z'
+updated: '2026-09-08T21:20:57.010263514Z'
 closed: '2026-09-08T20:07:08.607879786Z'
 tags:
 - copilot
 - harness
-- ready-for-agent
 acceptance:
 - title: setup supports --with-copilot and --with-copilot=VERSION
   done: true
@@ -123,3 +122,7 @@ Add GitHub Copilot CLI as a first-class Harness described by the existing closed
 **2026-09-08T20:07:08.607879786Z**
 
 Added GitHub Copilot CLI as a registry-driven Harness with npm version setup, persistent state, scoped credentials, fixed update policy, shared launch semantics, tests, and documentation.
+
+**2026-09-08T21:20:57.010263514Z**
+
+Descoped during code review on PR #2: npm distribution tags (latest, prerelease) are not accepted by --with-copilot. Copilot follows the same semver-only validation as the other npm Harnesses; prerelease versions such as 1.0.0-beta.1 still pin. Tag support can return as its own ticket if a user needs it. The ticket text above was edited in the same review round to match; this note is the record of that descoping.
