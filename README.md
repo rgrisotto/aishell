@@ -554,7 +554,24 @@ aishell automatically passes harness-specific API keys to containers when the co
 | `AZURE_OPENAI_API_KEY` | OpenCode | For Azure-hosted models |
 | `AZURE_OPENAI_ENDPOINT` | OpenCode | For Azure-hosted models |
 | `PI_CODING_AGENT_DIR` | Pi | Override pi's working directory |
-| `PI_SKIP_VERSION_CHECK` | Pi | Set to `true` to skip |
+
+### Set by aishell
+
+These are not read from the host. aishell sets them in every sandbox where the
+harness is enabled, so `aishell update` and version pins stay authoritative; a
+`config.yaml` `env:` entry of the same name loses to them and `docker_args` is
+the escape hatch (see
+[ADR 0008](docs/adr/0008-harness-owned-runtime-environment-precedence.md)).
+
+| Variable | Harness | Notes |
+|----------|---------|-------|
+| `DISABLE_AUTOUPDATER=1` | Claude | Autoupdater off |
+| `COPILOT_AUTO_UPDATE=false` | GitHub Copilot CLI | Self-update off |
+| `PI_SKIP_VERSION_CHECK=true` | Pi | Startup version check off |
+
+Codex CLI gets the same policy through argv (`-c
+check_for_update_on_startup=false`). Gemini CLI and OpenCode offer it only in
+their own config files, which aishell mounts rather than writes.
 
 ### Require Explicit config.yaml `env:` Section
 

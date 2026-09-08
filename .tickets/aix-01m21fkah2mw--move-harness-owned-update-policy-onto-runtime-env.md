@@ -6,27 +6,27 @@ type: task
 priority: 3
 mode: afk
 created: '2026-09-08T21:43:15.234763621Z'
-updated: '2026-09-08T21:43:19.628263500Z'
+updated: '2026-09-08T22:20:34.858040557Z'
 tags:
 - harness
 - registry
 acceptance:
 - title: Claude's DISABLE_AUTOUPDATER=1 comes from the :claude descriptor's :runtime-env and is only set when Claude is enabled
-  done: false
+  done: true
 - title: the hard-coded DISABLE_AUTOUPDATER line in docker/run.clj is gone
-  done: false
+  done: true
 - title: pi's PI_SKIP_VERSION_CHECK=true comes from :runtime-env and is dropped from :env-passthrough
-  done: false
+  done: true
 - title: runtime-env tests in run_test.clj are table-driven over every descriptor that declares :runtime-env
-  done: false
+  done: true
 - title: Gemini CLI and OpenCode update-check knobs are checked against current upstream docs and either added or recorded as not applicable
-  done: false
+  done: true
 - title: 'an ADR records the precedence rule: config env < harness :runtime-env < docker_args'
-  done: false
+  done: true
 - title: docs/HARNESSES.md shows a Set-by-aishell entry next to the forwarded variables for each affected harness
-  done: false
+  done: true
 - title: the full test suite passes and clj-kondo --lint src test is clean
-  done: false
+  done: true
 links:
 - aix-01m219j5rjsq
 ---
@@ -58,3 +58,16 @@ Three other Harnesses carry the same "aishell owns updates" policy, each express
 - Telemetry opt-outs.
 - Changing `:fixed-args` for Codex.
 - Any change to the `env` or `docker_args` escape hatches.
+
+## Notes
+
+**2026-09-08T22:20:34.858040557Z**
+
+Upstream check for the two remaining Harnesses, against current docs (2026-09-08):
+
+- Gemini CLI: no environment variable. Auto-update is settings.json only — general.enableAutoUpdate and general.enableAutoUpdateNotification. The feature request for a flag or env var (google-gemini/gemini-cli#7312) is still open, priority p3. Not applicable to :runtime-env; recorded in docs/HARNESSES.md under the Gemini environment table.
+- OpenCode: the documented knob is the autoupdate key in opencode.json (false or "notify"). OPENCODE_DISABLE_AUTOUPDATE appears in issue threads but not in opencode.ai/docs/config, so it is not a documented contract and was not added. Recorded the same way as Gemini.
+
+Both are config-file knobs in directories aishell mounts rather than writes, so setting them is the user's call; ADR 0008 says so under Consequences.
+
+No telemetry opt-out was added, per scope. None surfaced as an environment variable during this check; Gemini CLI's telemetry settings live in the same settings.json.

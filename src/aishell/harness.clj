@@ -44,8 +44,10 @@
 ;;                             read-only; absent when the harness has none
 ;;   :env-passthrough          host env vars forwarded when set, in declared order
 ;;   :runtime-env              fixed runtime environment policy: {"VAR" "value"}
-;;                             entries applied when enabled; they override
-;;                             ordinary config `env` entries
+;;                             entries applied when enabled. Precedence is
+;;                             config `env` < `:runtime-env` < `docker_args`
+;;                             (ADR 0008), so aishell keeps update ownership
+;;                             while `docker_args` stays the escape hatch
 ;; ---------------------------------------------------------------------------
 
 (def registry
@@ -64,7 +66,8 @@
     :install {:kind :npm :package "@anthropic-ai/claude-code"}
     :config-paths [{:path [".claude"] :type :dir}
                    {:path [".claude.json"] :type :file}]
-    :env-passthrough ["ANTHROPIC_API_KEY"]}
+    :env-passthrough ["ANTHROPIC_API_KEY"]
+    :runtime-env {"DISABLE_AUTOUPDATER" "1"}}
 
    {:id :opencode
     :label "OpenCode"
@@ -143,7 +146,8 @@
     :alias {:always? false}
     :install {:kind :npm :package "@earendil-works/pi-coding-agent"}
     :config-paths [{:path [".pi"] :type :dir}]
-    :env-passthrough ["PI_CODING_AGENT_DIR" "PI_SKIP_VERSION_CHECK"]}
+    :env-passthrough ["PI_CODING_AGENT_DIR"]
+    :runtime-env {"PI_SKIP_VERSION_CHECK" "true"}}
 
    {:id :gitleaks
     :label "Gitleaks"

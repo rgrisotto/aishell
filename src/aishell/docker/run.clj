@@ -594,9 +594,6 @@
         ;; API keys (only enabled harnesses)
         (into (build-api-env-args state))
 
-        ;; Disable autoupdater in container
-        (into ["-e" "DISABLE_AUTOUPDATER=1"])
-
         ;; Harness volume mount (volume-mounted harness tools)
         (into (build-harness-volume-args harness-volume-name config))
         (into (build-harness-env-args harness-volume-name))

@@ -268,11 +268,16 @@ Optional keys, each read by exactly one derivation:
 | `:config-paths` | home-relative dirs/files created on the host and mounted into the container |
 | `:credentials-file-env` | env var naming a host credentials file to mount read-only |
 | `:env-passthrough` | host env vars forwarded when set, in declared order |
-| `:runtime-env` | fixed env entries applied when enabled; they override config `env` and lose only to `docker_args` |
+| `:runtime-env` | fixed env entries applied when enabled; they override config `env` and lose only to `docker_args` ([ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md)) |
 
 Keep `:env-passthrough` to variables the harness itself defines. Broad
 credentials such as `GITHUB_TOKEN` stay an explicit opt-in through the
-`env` config key.
+`env` config key. A variable aishell decides the value of belongs in
+`:runtime-env` instead — a passthrough only works when the user already set it
+on the host, which is the wrong shape for policy. Add an update knob only when
+the harness's own documentation names it. The behavioral runtime-env tests in
+`run_test.clj` iterate every descriptor carrying `:runtime-env`; the literal
+inventory beside them is one more expectation to extend, like the tables below.
 
 Install kinds: `:npm` (`{:kind :npm :package "..."}`, pinned by semver
 through `--with-<id>=VERSION`), `:binary-tarball` (see OpenCode) and

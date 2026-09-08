@@ -271,6 +271,8 @@ env:
   - EDITOR                            # Passthrough (no =)
 ```
 
+Precedence: `env` < harness update policy < `docker_args`. Each enabled harness sets fixed variables aishell owns (`DISABLE_AUTOUPDATER=1` for Claude Code, `COPILOT_AUTO_UPDATE=false` for Copilot, `PI_SKIP_VERSION_CHECK=true` for pi) after `env`, so an `env` entry of the same name has no effect; `docker_args` is emitted last and overrides both. See `docs/adr/0008-harness-owned-runtime-environment-precedence.md`.
+
 #### ports
 
 Expose container ports.
@@ -293,7 +295,7 @@ docker_args:
   - "--hostname=aishell"
 ```
 
-Dangerous flags (--privileged, --network=host, --cap-add=ALL, etc.) trigger warnings.
+Dangerous flags (--privileged, --network=host, --cap-add=ALL, etc.) trigger warnings. `-e` flags here are the last word: they override `env` and the harness update policy alike.
 
 #### pre_start
 
@@ -410,6 +412,14 @@ aishell passes these to containers when set on the host:
 - `GITHUB_TOKEN` - GitHub API access
 - `AISHELL_SKIP_PERMISSIONS` - Set to "false" to re-enable Claude Code permission prompts (default: permissions are skipped)
 - `NO_COLOR` - Disable colored output
+
+aishell sets these itself in every sandbox where the harness is enabled, whatever the host has:
+
+- `DISABLE_AUTOUPDATER=1` - Claude Code, autoupdater off
+- `COPILOT_AUTO_UPDATE=false` - GitHub Copilot CLI, self-update off
+- `PI_SKIP_VERSION_CHECK=true` - pi, startup version check off
+
+Codex CLI gets the same policy through argv (`-c check_for_update_on_startup=false`). Gemini CLI and OpenCode expose the setting only in their config files (`general.enableAutoUpdate`, `autoupdate`), so aishell sets nothing for them.
 
 These stay on the host and are never passed to a container:
 

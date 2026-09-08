@@ -153,6 +153,11 @@ harnesses:
 | `CLAUDE_MAX_TOKENS` | Response token limit | `4096` |
 | `CLAUDE_TIMEOUT` | Request timeout (seconds) | `300` |
 
+**Set by aishell:** `DISABLE_AUTOUPDATER=1`, in Claude-enabled Sandboxes only.
+The Harness volume is read-only and pinned, so `aishell update` and
+`aishell setup --with-claude=VERSION` stay authoritative. It overrides an `env:`
+entry of the same name; `docker_args` is the escape hatch. See [ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md).
+
 ### Configuration Directory
 
 - **Host:** `~/.claude`
@@ -270,6 +275,11 @@ harnesses:
 | `AZURE_OPENAI_API_KEY` | Azure API key | Azure OpenAI |
 | `AZURE_OPENAI_ENDPOINT` | Azure endpoint URL | Azure OpenAI |
 
+**Set by aishell:** nothing. OpenCode disables its self-update through the
+`autoupdate` key in `opencode.json`, not an environment variable, and aishell
+mounts your config rather than writing to it. Set `"autoupdate": false` yourself
+if OpenCode tries to update inside a Sandbox.
+
 ### Configuration Directories
 
 - **Host:** `~/.config/opencode`, `~/.local/share/opencode`
@@ -385,6 +395,10 @@ harnesses:
 | `CODEX_API_KEY` | API key for `codex exec` | `sk-...` |
 | `CODEX_MODEL` | Default model | `gpt-4o` |
 
+**Set by aishell:** `-c check_for_update_on_startup=false` on every launch —
+argv rather than an environment variable, because that is the knob Codex
+offers. See [ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md).
+
 ### Configuration Directory
 
 - **Host:** `~/.codex`
@@ -424,6 +438,10 @@ forwarded automatically, and only when Copilot is enabled. `GH_TOKEN`,
 them through the normal `env:` configuration. `COPILOT_HOME`,
 `COPILOT_CACHE_HOME`, and external cache locations are not forwarded or
 mounted.
+
+**Set by aishell:** `COPILOT_AUTO_UPDATE=false`, in Copilot-enabled Sandboxes
+only. It overrides an `env:` entry of the same name; `docker_args` is the
+escape hatch. See [ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md).
 
 ### Usage
 
@@ -553,6 +571,11 @@ harnesses:
 | `GOOGLE_APPLICATION_CREDENTIALS` | GCP service account (Vertex AI) | `/path/to/creds.json` |
 | `GEMINI_MODEL` | Default model | `gemini-2.0-flash-exp` |
 
+**Set by aishell:** nothing. Gemini CLI disables its auto-update through
+`general.enableAutoUpdate` in `~/.gemini/settings.json`, not an environment
+variable, and aishell mounts that directory rather than writing to it. Set it to
+`false` yourself if Gemini CLI tries to update inside a Sandbox.
+
 ### Configuration Directory
 
 - **Host:** `~/.gemini`
@@ -638,7 +661,11 @@ harnesses:
 | Variable | Purpose | Example |
 |----------|---------|---------|
 | `PI_CODING_AGENT_DIR` | Override pi's working directory | `/custom/path` |
-| `PI_SKIP_VERSION_CHECK` | Skip version check on startup | `true` |
+
+**Set by aishell:** `PI_SKIP_VERSION_CHECK=true`, in pi-enabled Sandboxes only.
+The check is noise against a read-only, pinned Harness volume. It is no longer
+read from the host: exporting it there has no effect, and it overrides an `env:`
+entry of the same name, with `docker_args` as the escape hatch. See [ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md).
 
 ### Configuration Directory
 

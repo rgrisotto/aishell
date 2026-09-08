@@ -172,6 +172,11 @@
            (:env-passthrough (harness/descriptor :codex))))
     (is (= ["ANTHROPIC_API_KEY"]
            (:env-passthrough (harness/descriptor :claude)))))
+  (testing "pi's version check is aishell policy, not a host passthrough"
+    (is (= ["PI_CODING_AGENT_DIR"] (:env-passthrough (harness/descriptor :pi))))
+    (is (= {"PI_SKIP_VERSION_CHECK" "true"} (:runtime-env (harness/descriptor :pi)))))
+  (testing "claude's autoupdater flag is declared where it is read"
+    (is (= {"DISABLE_AUTOUPDATER" "1"} (:runtime-env (harness/descriptor :claude)))))
   (testing "copilot carries only its supported persistence and environment contract"
     (is (= [{:path [".copilot"] :type :dir}]
            (:config-paths (harness/descriptor :copilot))))

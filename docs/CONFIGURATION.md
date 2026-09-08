@@ -473,6 +473,13 @@ env:
 
 **Merge behavior:** Global and project envs shallow-merge (project keys override global).
 
+**Precedence:** `env` < Harness update policy < `docker_args`. Each enabled
+Harness contributes fixed variables aishell owns — `DISABLE_AUTOUPDATER=1`
+(Claude Code), `COPILOT_AUTO_UPDATE=false` (GitHub Copilot CLI),
+`PI_SKIP_VERSION_CHECK=true` (pi) — and those are set after `env`, so an `env`
+entry of the same name does not take effect. `docker_args` comes last and wins
+over both. See [ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md).
+
 **Common use cases:**
 
 | Use Case | Example |
@@ -551,6 +558,11 @@ docker_args:
 - Some flags trigger security warnings (see below)
 
 **Merge behavior:** Global and project docker_args concatenate (both apply).
+
+**Precedence:** these flags are emitted last, so `-e` flags here override both
+`env` and the fixed update policy aishell sets per Harness. That makes
+`docker_args` the deliberate escape hatch — re-enabling a Harness self-updater
+inside a Sandbox with a read-only, pinned Harness volume is on you. See [ADR 0008](adr/0008-harness-owned-runtime-environment-precedence.md).
 
 **Dangerous flags (trigger warnings):**
 
@@ -698,6 +710,9 @@ harness_args:
   `COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST`, and force
   `COPILOT_AUTO_UPDATE=false`. Add `GH_TOKEN`, `GITHUB_TOKEN`, or `GH_HOST`
   explicitly under `env` if required.
+- Claude- and pi-enabled Sandboxes force `DISABLE_AUTOUPDATER=1` and
+  `PI_SKIP_VERSION_CHECK=true` the same way, and Codex CLI launches with
+  `-c check_for_update_on_startup=false`
 
 **Merge behavior:** Per-harness lists concatenate (global defaults + project defaults).
 

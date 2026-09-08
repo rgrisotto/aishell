@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Harness update policy now lives on the Harness descriptor**: Claude Code's `DISABLE_AUTOUPDATER=1` and pi's `PI_SKIP_VERSION_CHECK=true` join Copilot's `COPILOT_AUTO_UPDATE=false` as `:runtime-env` entries, set exactly when their Harness is enabled. The precedence is `env` < `:runtime-env` < `docker_args`, so ordinary config cannot re-enable a self-updater against a read-only, pinned Harness volume while `docker_args` stays the deliberate escape hatch. `docs/adr/0008-harness-owned-runtime-environment-precedence.md` records it
+
+- **`DISABLE_AUTOUPDATER=1` is no longer set in Sandboxes without Claude Code**: it used to go into every `docker run`, whatever was installed. Only Claude Code reads it, so nothing should change for you; the variable simply stops appearing where it had no reader
+
+- **pi's version check is skipped in every pi Sandbox**: `PI_SKIP_VERSION_CHECK` was a host passthrough, so the check was only skipped for users who had already exported it. It is now set by aishell and dropped from the passthrough list — setting it on the host no longer does anything by itself
+
+- **Gemini CLI and OpenCode get no update-check variable**: both expose the setting through their config files only (`general.enableAutoUpdate` in `~/.gemini/settings.json`, `autoupdate` in `opencode.json`), and aishell mounts those directories rather than writing to them. `docs/HARNESSES.md` says so under each Harness
+
 ## [4.1.0] - 2026-09-04
 
 ### Added

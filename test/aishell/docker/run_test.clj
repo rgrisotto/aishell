@@ -455,7 +455,7 @@
             :with-copilot  ["COPILOT_GITHUB_TOKEN" "COPILOT_GH_HOST"]
             :with-gemini   ["GEMINI_API_KEY" "GOOGLE_API_KEY" "GOOGLE_CLOUD_PROJECT"
                             "GOOGLE_CLOUD_LOCATION" "GOOGLE_APPLICATION_CREDENTIALS"]
-            :with-pi       ["PI_CODING_AGENT_DIR" "PI_SKIP_VERSION_CHECK"]}
+            :with-pi       ["PI_CODING_AGENT_DIR"]}
            run/harness-api-keys)))
   (testing "gitleaks passes no API keys through"
     (is (nil? (get run/harness-api-keys :with-gitleaks)))))
@@ -485,33 +485,70 @@
                                                                :with-gemini true
                                                                :with-pi true})))))
 
-(deftest copilot-runtime-environment-is-enabled-and-fixed
-  (testing "only enabled Copilot contributes its fixed update policy"
+(defn- sandbox-args
+  "The `docker run` argv for a sandbox built from `config` and setup `state`,
+   against a throwaway HOME. The rest of the launch inputs are fixed: these
+   tests read the argv for one variable, not for the container it describes."
+  [{:keys [config state]}]
+  (let [home (str (fs/create-temp-dir))
+        project (str (fs/create-temp-dir))]
+    (try
+      (with-redefs [util/get-home (constantly home)]
+        (run/build-docker-args
+         {:project-dir project
+          :image-tag "aishell:test"
+          :config config
+          :state state
+          :git-identity {}
+          :skip-pre-start false
+          :skip-interactive true}))
+      (finally
+        (fs/delete-tree home)
+        (fs/delete-tree project)))))
+
+(def ^:private runtime-env-descriptors
+  "Every descriptor declaring fixed runtime environment policy. The behavioral
+   tests below iterate over this rather than naming one harness, so a descriptor
+   that gains or loses `:runtime-env` is exercised without editing them. The
+   inventory test still names what the registry holds today."
+  (filterv :runtime-env harness/registry))
+
+(deftest runtime-env-is-declared-by-claude-copilot-and-pi
+  (testing "the harnesses aishell owns updates for declare it on their descriptors"
+    (is (= {:claude  {"DISABLE_AUTOUPDATER" "1"}
+            :copilot {"COPILOT_AUTO_UPDATE" "false"}
+            :pi      {"PI_SKIP_VERSION_CHECK" "true"}}
+           (into {} (map (juxt :id :runtime-env)) runtime-env-descriptors)))))
+
+(deftest runtime-env-args-are-scoped-to-enabled-harnesses
+  (testing "no harness enabled means no fixed runtime env at all"
     (is (= [] (runtime-env-args {})))
-    (is (= ["-e" "COPILOT_AUTO_UPDATE=false"]
-           (runtime-env-args {:with-copilot true}))))
-  (testing "ordinary config env comes first, fixed policy next, docker_args last"
-    (let [home (str (fs/create-temp-dir))
-          project (str (fs/create-temp-dir))]
-      (try
-        (with-redefs [util/get-home (constantly home)]
-          (let [args (run/build-docker-args
-                      {:project-dir project
-                       :image-tag "aishell:test"
-                       :config {:env ["COPILOT_AUTO_UPDATE=true"]
-                                :docker_args ["-e" "COPILOT_AUTO_UPDATE=escape"]}
-                       :state {:with-copilot true}
-                       :git-identity {}
-                       :skip-pre-start false
-                       :skip-interactive true})
-                index (fn [value] (.indexOf args value))]
-            (is (< (index "COPILOT_AUTO_UPDATE=true")
-                   (index "COPILOT_AUTO_UPDATE=false")
-                   (index "COPILOT_AUTO_UPDATE=escape")
-                   (index "aishell:test")))))
-        (finally
-          (fs/delete-tree home)
-          (fs/delete-tree project))))))
+    (is (= [] (runtime-env-args (into {} (map (juxt :state-key (constantly false)))
+                                      harness/registry)))))
+  (doseq [{:keys [id state-key runtime-env]} runtime-env-descriptors]
+    (testing (str "only enabled " id " contributes its fixed policy")
+      (is (= (into [] (mapcat (fn [[var value]] ["-e" (str var "=" value)])) runtime-env)
+             (runtime-env-args {state-key true}))))))
+
+(deftest runtime-env-beats-config-env-and-loses-to-docker-args
+  (doseq [{:keys [id state-key runtime-env]} runtime-env-descriptors
+          [var value] runtime-env]
+    (testing (str "for " id ": ordinary config env comes first, fixed policy next, docker_args last")
+      (let [args (sandbox-args {:config {:env [(str var "=config")]
+                                         :docker_args ["-e" (str var "=escape")]}
+                                :state {state-key true}})
+            index (fn [v] (.indexOf args v))]
+        (is (< (index (str var "=config"))
+               (index (str var "=" value))
+               (index (str var "=escape"))
+               (index "aishell:test")))))))
+
+(deftest disable-autoupdater-is-claude-scoped
+  (testing "the variable rides on Claude's descriptor, not on every sandbox"
+    (is (not (some #{"DISABLE_AUTOUPDATER=1"}
+                   (sandbox-args {:config {} :state {:with-codex true}}))))
+    (is (some #{"DISABLE_AUTOUPDATER=1"}
+              (sandbox-args {:config {} :state {:with-claude true}})))))
 
 (deftest copilot-config-mount-is-scoped-to-enabled-state
   (let [home (str (fs/create-temp-dir))]
