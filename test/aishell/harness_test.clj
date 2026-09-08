@@ -223,7 +223,10 @@
     (is (= ["gitleaks"] (argv :gitleaks {:skip-permissions? false}))))
   (testing "omitted skip-permissions is treated as off, not as the env default"
     (is (= ["claude"] (argv :claude {})))
-    (is (= ["claude"] (argv :claude nil)))))
+    (is (= ["claude"] (argv :claude nil))))
+  (testing "copilot never gets an implicit --allow-all or --yolo, skip-permissions on or off"
+    (is (not-any? #{"--allow-all" "--yolo"} (argv :copilot {:skip-permissions? true})))
+    (is (not-any? #{"--allow-all" "--yolo"} (argv :copilot {:skip-permissions? false})))))
 
 (deftest argv-config-defaults-precede-cli-args
   (testing "defaults come first so CLI args win by position"

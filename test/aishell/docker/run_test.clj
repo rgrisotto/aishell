@@ -453,6 +453,17 @@
   (testing "gitleaks passes no API keys through"
     (is (nil? (get run/harness-api-keys :with-gitleaks)))))
 
+(deftest copilot-does-not-forward-broad-github-or-cache-vars
+  (testing "GH_TOKEN, GITHUB_TOKEN, COPILOT_HOME, and COPILOT_CACHE_HOME are not declared for Copilot"
+    (is (not-any? #{"GH_TOKEN" "GITHUB_TOKEN" "COPILOT_HOME" "COPILOT_CACHE_HOME"}
+                  (get run/harness-api-keys :with-copilot))))
+  (testing "even when actually set on the host, none of them reach Copilot's -e args"
+    (let [broad-vars ["GH_TOKEN" "GITHUB_TOKEN" "COPILOT_HOME" "COPILOT_CACHE_HOME"]
+          set-var (first (filter #(System/getenv %) broad-vars))]
+      (when set-var
+        (is (empty? (filter #(str/starts-with? (str %) (str set-var "="))
+                            (api-env-args {:with-copilot true}))))))))
+
 (deftest api-env-args-only-cover-enabled-harnesses
   (testing "a disabled harness contributes no -e flag even when the var is set"
     (let [set-var (first (filter #(System/getenv %) (get run/harness-api-keys :with-gemini)))]

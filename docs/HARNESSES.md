@@ -11,7 +11,7 @@ Harnesses are AI CLI tools that aishell runs in isolated containers. Each harnes
 - **Claude Code** - Anthropic's autonomous coding agent
 - **OpenCode** - Multi-provider AI coding agent (Anthropic, OpenAI, Google, etc.)
 - **Codex CLI** - OpenAI's ChatGPT integration for coding
-- **GitHub Copilot CLI** - GitHub's coding agent for the terminal
+- **GitHub Copilot CLI** - GitHub's terminal Harness for coding
 - **Gemini CLI** - Google's Gemini models for development
 - **Pi** - Mario Zechner's autonomous coding agent
 
@@ -48,6 +48,8 @@ aishell volumes prune
 |---------|-------------|----------|-----------|--------------------|------------|-----|
 | Provider | Anthropic | Multiple | OpenAI | GitHub | Google | Mario Zechner |
 | Auth Methods | OAuth, API Key | Per-provider | OAuth, API Key | Device OAuth, token | OAuth, API Key | API Key |
+| Container Auth | Copy-paste URL | Standard | Device code | Device code | Auth on host first | Standard |
+| Vertex AI | No | Yes | No | No | Yes | No |
 | Config Dir | ~/.claude | ~/.config/opencode | ~/.codex | ~/.copilot | ~/.gemini | ~/.pi |
 | Best For | Autonomous coding | Multi-model flexibility | ChatGPT integration | GitHub Copilot workflows | Gemini models | Autonomous coding |
 
@@ -397,7 +399,7 @@ harnesses:
 
 ## GitHub Copilot CLI
 
-GitHub Copilot CLI is GitHub's coding agent for terminal workflows.
+GitHub Copilot CLI is GitHub's Harness for terminal coding workflows.
 
 ### Installation
 
