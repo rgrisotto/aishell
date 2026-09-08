@@ -642,6 +642,51 @@ aishell attach reviewer
 
 `aishell attach` runs `docker exec -it <container> bash`, giving you a new shell session inside the running container. The original harness process continues running.
 
+Attach can also launch a command instead of dropping straight to a shell. Everything after `--` is
+run inside the container, and a login shell takes over when it exits:
+
+```bash
+aishell attach claude -- claude
+```
+
+### Several Claude sessions, one sandbox
+
+To run more than one Claude Code session against the same project, start the sandbox once and add
+sessions with `attach`:
+
+```bash
+# Terminal 1 — starts the container
+aishell claude
+
+# Terminals 2, 3, … — extra sessions in that same container
+aishell attach -- claude
+```
+
+Prefer this over starting a second container with `--name` when the sessions are meant to run **at
+the same time**. Claude Code's supervisor state — `daemon.lock`, `daemon/roster.json`, `jobs/` —
+is only meaningful within one PID namespace and one `/tmp`. Sessions sharing a container share
+both, so Agent View sees all of them and background jobs behave. Two concurrent containers under
+the default `claude_isolation: shared` instead write that state over each other through the host's
+`~/.claude`, which breaks Agent View; see
+[ADR 0001](adr/0001-per-project-claude-machine-state-isolation.md).
+
+`aishell claude --name reviewer` remains the right tool for a session that should be genuinely
+independent — its own filesystem view, its own lifetime. Set `claude_isolation: project` when two
+such containers run concurrently.
+
+Three things to know about the shared-sandbox pattern:
+
+- **The first terminal owns the container.** It holds the `docker run --rm`; the attached sessions
+  are `docker exec` children. Closing it kills every session in that sandbox, mid-work and without
+  warning. If that worries you, start the container with a plain shell (`aishell shell`) so the
+  owning terminal is obviously infrastructure, and make every Claude session an attach.
+- **Attached sessions leave a shell behind.** When Claude exits, the login shell takes over and the
+  terminal stays open. Type `exit` to close it.
+- **All sessions share one working directory**, along with the sandbox's resource limits and
+  network policy. Two agents editing the same tree is no safer here than it is on your host.
+
+For driving these sessions from a multiplexer, see [Running aishell under herdr](HERDR.md).
+
 ### Stopping Containers
 
 ```bash

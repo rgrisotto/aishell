@@ -6,7 +6,7 @@ type: epic
 priority: 2
 mode: hitl
 created: '2026-07-16T02:52:38.466589346Z'
-updated: '2026-08-27T16:15:59.619581288Z'
+updated: '2026-09-08T12:31:21.374005124Z'
 tags:
 - wayfinder:map
 links:
@@ -28,6 +28,10 @@ v1 orchestration layer design locked: a babashka library (harness-provider abstr
 **2026-08-27T16:15:59.619581288Z**
 
 ADR 0006: headless runs default to the strict security profile (see aix-01m1203dkknf). Add that to the v1 design decisions.
+
+**2026-09-08T12:31:21.374005124Z**
+
+herdr (https://herdr.dev) is an orthogonal host-side layer, not an input to this design: a terminal multiplexer run on the host, one sandbox per pane, launched as `HERDR_AGENT=claude aishell claude`. It needs no aishell code and does not touch the headless `docker exec` mechanics here. The open 'streaming/progress UX for long-running headless runs' item stays open — herdr answers only the supervised case (a human watching a pane), not whether `aishell run` buffers or streams. See docs/HERDR.md, which also records why herdr's control socket is never mounted into a sandbox.
 
 ## Decisions so far
 
