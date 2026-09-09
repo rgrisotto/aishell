@@ -1,20 +1,14 @@
 # aishell
 
-Docker sandbox for running AI coding agents (Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, Gemini CLI, Pi) in ephemeral containers.
+aishell runs AI coding agents in ephemeral Docker containers. It supports Claude Code, OpenCode, Codex CLI, GitHub Copilot CLI, Gemini CLI, and Pi.
 
 ## Why Docker?
 
-AI coding agents run arbitrary code — installing packages, writing scripts, deleting files — with
-minimal human review. On your host machine, one bad command can reach your SSH keys, cloud
-credentials, browser data, and every file you own.
+AI coding agents install packages, write scripts, and delete files with minimal human review. On your host, one bad command can reach credentials and personal files.
 
-Docker draws a boundary. The agent sees only what you mount: your project directory and its config
-files. It cannot touch `~/.ssh`, overwrite your shell config, or install packages that outlive the
-session. When the agent exits, the container disappears. Nothing accumulates.
+Docker limits the agent to the files and directories that you mount. These usually include your project and the agent's configuration files. The agent cannot access `~/.ssh` or overwrite your shell configuration unless you mount those paths. Packages installed in the container disappear with the container.
 
-A fixed base image also means every developer runs agents in the same environment — no "works on my
-machine" failures. And if you run multiple agents simultaneously, each gets its own container with no
-shared state.
+The fixed base image gives each developer the same tools and versions. Each concurrent agent gets a separate container.
 
 ## Why aishell?
 
@@ -31,30 +25,30 @@ docker run -it --rm \
   my-claude-image claude
 ```
 
-And that's the simple version. You still need to:
+That command still leaves three details for you to manage:
 
-- **Get paths right** - AI agents reference absolute paths. If `/home/you/project` on your host becomes `/app` in the container, file references break.
-- **Preserve git identity** - Without setup, commits appear as "root" or "unknown". You need to pass through `.gitconfig` or set `GIT_AUTHOR_*` variables.
-- **Reproduce across machines** - That 200-character docker command you perfected? Good luck remembering it on your laptop.
+- AI agents use absolute paths. File references break if `/home/you/project` on the host becomes `/app` in the container.
+- Git needs your identity. Without it, commits use "root" or "unknown" as the author.
+- You must reproduce the same Docker options and mounts on each machine.
 
-aishell handles all of this. One command, consistent behavior, works everywhere.
+aishell configures these details and starts the agent with one command.
 
 ### Why not devcontainers?
 
 Devcontainers solve a different problem. They create persistent development environments tied to your IDE.
 
-aishell is purpose-built for AI agents:
+aishell runs short-lived AI agent sessions from a terminal:
 
-- **Ephemeral by design** - Containers spin up, run the agent, and disappear. No state accumulates, no cleanup needed.
-- **Host path preservation** - Devcontainers remap your project to `/workspaces/project`. When an AI agent says "edit `/home/you/project/src/main.ts`", that path needs to exist. aishell mounts your project at its real path.
-- **CLI-first** - No IDE required. Run from any terminal, SSH session, or script.
-- **Zero config for the common case** - `aishell claude` just works. Devcontainers require `devcontainer.json`, features configuration, and IDE integration.
+- Containers disappear when the agent exits.
+- aishell mounts your project at its host path. Devcontainers usually remap the project to `/workspaces/project`.
+- You can run aishell from a terminal, SSH session, or script without an IDE.
+- `aishell claude` runs without a `devcontainer.json` file, feature configuration, or IDE integration.
 
 You can use both: devcontainers for your development environment, aishell for running AI agents.
 
-## Quick Start
+## Quick start
 
-### Unix/macOS/Linux
+### Unix, macOS, and Linux
 
 ```bash
 # 1. Install
@@ -69,7 +63,7 @@ aishell opencode
 
 ### Windows
 
-**Recommended:** Use WSL2 and follow the Unix/Linux instructions above — it provides the best experience. Otherwise, use PowerShell. CMD works but has limited error handling and no colored output.
+Use WSL2 and follow the Linux instructions when possible. You can also install aishell with PowerShell. CMD has limited error handling and no colored output.
 
 #### PowerShell
 
@@ -97,22 +91,23 @@ aishell opencode
 > Requires Windows 10 version 1803 or later.
 
 <details>
-<summary>Prerequisites & troubleshooting</summary>
+<summary>Prerequisites and troubleshooting</summary>
 
-**Requirements:**
+Requirements:
 
-- **Linux/macOS:** Docker Engine
-- **Windows:** Docker Desktop with WSL2 backend enabled
+- Linux and macOS require Docker Engine.
+- Windows requires Docker Desktop with the WSL2 backend enabled.
 
 aishell ships as a single executable carrying its own babashka. Docker is the only thing you install yourself.
 
-**Docker:**
-- Linux/macOS: Install [Docker Engine](https://docs.docker.com/engine/install/)
-- Windows: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and enable WSL2 backend (Settings → General → "Use the WSL 2 based engine")
+Docker installation:
 
-**Binaries downloaded through a browser:**
+- On Linux or macOS, install [Docker Engine](https://docs.docker.com/engine/install/).
+- On Windows, install [Docker Desktop](https://www.docker.com/products/docker-desktop/). Enable "Use the WSL 2 based engine" under Settings > General.
 
-The install scripts fetch the binary with curl or PowerShell, and those downloads carry no quarantine flag. A browser download does, and the binaries are not code-signed yet. If you downloaded one from the releases page in a browser, clear the flag before you run it.
+Browser downloads:
+
+The install scripts download the binary without a quarantine flag. Browsers add this flag, and aishell binaries are not code-signed. Clear the flag before you run a browser download.
 
 macOS:
 
@@ -120,13 +115,13 @@ macOS:
 xattr -d com.apple.quarantine ~/Downloads/aishell-macos-aarch64.tar.gz
 ```
 
-Windows: right-click the downloaded zip, open Properties, and check "Unblock" before you extract it. From PowerShell:
+On Windows, right-click the downloaded zip and open Properties. Select "Unblock" before you extract the archive. You can also use PowerShell:
 
 ```powershell
 Unblock-File .\aishell-windows-amd64.zip
 ```
 
-**Running aishell on your own babashka:**
+Use an existing babashka installation:
 
 The release binaries carry their own babashka, so you do not need one. To run aishell on the babashka you already have, install it from the git repository with [bbin](https://github.com/babashka/bbin):
 
@@ -134,15 +129,15 @@ The release binaries carry their own babashka, so you do not need one. To run ai
 bbin install io.github.UniSoma/aishell
 ```
 
-**PATH configuration:**
+PATH configuration:
 
-Unix/macOS - Add `~/.local/bin` to PATH if not already present:
+On Unix or macOS, add `~/.local/bin` to `PATH` if necessary:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Windows - After installation, add the directory containing `aishell.exe` to PATH:
+On Windows, add the directory that contains `aishell.exe` to `PATH`:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:LOCALAPPDATA\Programs\aishell", [System.EnvironmentVariableTarget]::User)
@@ -150,7 +145,7 @@ Windows - After installation, add the directory containing `aishell.exe` to PATH
 
 Then restart your terminal.
 
-**Updating harness tools:**
+Update harness tools:
 
 ```bash
 # Unix/macOS/Linux
@@ -164,38 +159,40 @@ aishell update
 
 ## How it works
 
-When you run `aishell claude`, aishell launches an ephemeral Docker container with your project mounted at its real host path so file references stay valid. Your git identity and harness configs (e.g. `~/.claude`) are passed through automatically. Any per-project customization from `.aishell/` is applied. When the agent exits, the container disappears — only your project files and harness configs persist.
+When you run `aishell claude`, aishell starts a Docker container and mounts your project at its host path. It also mounts your Git identity and harness configuration, such as `~/.claude`. aishell applies project configuration from `.aishell/`. The container disappears when the agent exits, but your project files and harness configuration persist.
 
 ## Features
 
 ### Core
 
-- **Isolated execution** - AI agents run in ephemeral Docker containers
-- **Host path preservation** - Projects mounted at their real host path so file references stay valid
-- **Git identity passthrough** - Commits preserve your identity
-- **Config persistence** - Mounts `~/.claude` and OpenCode configs
+- Runs AI agents in ephemeral Docker containers
+- Mounts projects at their host paths
+- Preserves your Git identity in commits
+- Mounts Claude Code and OpenCode configuration
 
 ### Customization
 
-- **Global base image** - Customize the base image for all projects via `~/.aishell/Dockerfile` (extra system packages, shell config, dev tools). See [Configuration docs](docs/CONFIGURATION.md#global-base-image-customization) for details.
-- **Per-project customization** - Extend via `.aishell/Dockerfile`
-- **Runtime configuration** - Custom mounts, env vars, ports via `.aishell/config.yaml`
-- **Version pinning** - Lock harness versions for reproducibility
-- **Pre-start commands** - Run sidecar services before shell/harness
+- Adds system packages, shell configuration, and development tools through `~/.aishell/Dockerfile`
+- Extends the image for one project through `.aishell/Dockerfile`
+- Sets mounts, environment variables, and ports in `.aishell/config.yaml`
+- Pins harness versions
+- Runs sidecar services before the shell or harness starts
+
+See [Global base image customization](docs/CONFIGURATION.md#global-base-image-customization) for details.
 
 ### Power user
 
-- **Sensitive file detection** - Warnings before AI agents access secrets, keys, or credentials
-- **Gitleaks integration** - Opt-in deep content-based secret scanning with `aishell gitleaks` (requires `--with-gitleaks`)
-- **One-off commands** - Run single commands in container with `aishell exec`
-- **Named containers** - Deterministic naming with `--name` override
-- **VSCode integration** - Open VSCode attached to a container as `developer` with `aishell vscode`, server state persisted across restarts
-- **Attach** - Open a shell in a running container via `aishell attach`; the name is optional when only one is running
-- **Container discovery** - List project containers with `aishell ps`
-- **Volume management** - List and prune orphaned harness volumes with `aishell volumes`
-- **Image info** - Show image stack and installed tools with `aishell info`
-- **Update notifications** - Automatic check for newer versions (configurable interval, disable via `update_check` in config)
-- **Self-upgrade** - Update aishell itself with `aishell upgrade`, with checksum verification
+- Warns before an agent can access detected secrets, keys, or credentials
+- Runs optional content-based secret scans with `aishell gitleaks` when setup includes `--with-gitleaks`
+- Runs a single container command with `aishell exec`
+- Assigns deterministic container names with `--name`
+- Opens VSCode in a container as `developer` and persists the server state across restarts
+- Opens a shell in a running container with `aishell attach`; the name is optional when one container is running
+- Lists project containers with `aishell ps`
+- Lists and prunes orphaned harness volumes with `aishell volumes`
+- Shows the image stack and installed tools with `aishell info`
+- Checks for new versions at a configurable interval; set `update_check` to disable the check
+- Updates aishell and verifies the downloaded checksum with `aishell upgrade`
 
 ## Usage
 
@@ -256,7 +253,7 @@ echo "hello" | aishell exec cat
 cat package.json | aishell exec jq '.scripts'
 ```
 
-**Note:** The exec command uses the same mounts and environment from your config.yaml, but skips pre-start hooks and sensitive file detection for fast execution.
+`aishell exec` uses the mounts and environment from `config.yaml`. It skips pre-start hooks and sensitive file detection.
 
 ### Multi-container workflow
 
@@ -279,13 +276,13 @@ aishell attach
 docker stop <container-name>
 ```
 
-Containers are named `aishell-{project-hash}-{name}`. Use `aishell ps` to discover container names for your project.
+aishell names containers `aishell-{project-hash}-{name}`. Use `aishell ps` to discover container names for your project.
 
-**Conflict detection:** Starting a container with a name already in use by a running container shows an error with guidance. Stopped containers with the same name are auto-removed.
+aishell reports an error if a running container already uses the requested name. It removes a stopped container with the same name.
 
-### VSCode (Experimental)
+### VSCode (experimental)
 
-Open VSCode attached to the container as the `developer` user — no manual configuration needed:
+Open VSCode in the container as the `developer` user:
 
 ```bash
 # Open VSCode attached to the container (blocks until window closes, then stops container)
@@ -302,13 +299,13 @@ aishell vscode --profile Work
 aishell vscode --detach --disable-gpu
 ```
 
-By default, aishell waits for the VSCode window to close, then stops the container automatically. Use `--detach` to leave the container running in the background. Multiple `aishell vscode` instances can run simultaneously — each opens a dedicated window.
+By default, aishell waits for the VSCode window to close and then stops the container. Use `--detach` to leave the container running. Each concurrent `aishell vscode` instance opens a separate window.
 
-Any arguments not recognized by aishell (`--detach`, `--stop`, `--help`) are passed through to the `code` CLI. You can also set persistent defaults via `harness_args.vscode` in your [config](docs/CONFIGURATION.md#harness_args).
+aishell passes unrecognized arguments to the `code` CLI. Its own arguments are `--detach`, `--stop`, and `--help`. You can set persistent defaults through `harness_args.vscode` in your [configuration](docs/CONFIGURATION.md#harness_args).
 
-The `~/.vscode-server` directory is mounted into the container, so VSCode server extensions and cached data persist across container restarts.
+aishell mounts `~/.vscode-server` into the container. VSCode server extensions and cached data persist across container restarts.
 
-**Prerequisites:** VSCode with `code` CLI on PATH and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension installed. On WSL2 with Docker installed inside the distro (not Docker Desktop), see [Troubleshooting](docs/TROUBLESHOOTING.md#symptom-vscode-dev-container-cant-find-docker-on-wsl2-no-docker-desktop).
+This command requires VSCode, the `code` CLI on `PATH`, and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension. If WSL2 runs Docker inside the distribution, see [Troubleshooting](docs/TROUBLESHOOTING.md#symptom-vscode-dev-container-cant-find-docker-on-wsl2-no-docker-desktop).
 
 ### Upgrade aishell
 
@@ -320,11 +317,11 @@ aishell upgrade
 aishell upgrade 4.1.0
 ```
 
-`aishell upgrade` downloads the archive for your platform, checks it against the release's `SHA256SUMS`, and unpacks the binary inside before it replaces anything. Linux and macOS use the system `tar`; on Windows the zip is read in-process. At a terminal it shows a progress bar; from a script it prints the download size instead. Asking for a version below 4.1.0 fails the download: those releases published a script that needs babashka, not a binary for your platform.
+`aishell upgrade` downloads the archive for your platform and verifies it against the release's `SHA256SUMS`. It unpacks the binary before replacing the installed version. Linux and macOS use the system `tar`. Windows reads the zip in the aishell process. A terminal shows a progress bar, while a script receives the download size. Versions before 4.1.0 contain a babashka script instead of platform binaries and cannot use this command.
 
-Upgrading from a 4.0.0 script install replaces the script in place, so your PATH entry stays as it is. On Windows it writes `aishell.exe` and deletes the old `aishell` and `aishell.bat`, and says so.
+An upgrade from a 4.0.0 script installation replaces the script in place, so its `PATH` entry remains valid. On Windows, aishell writes `aishell.exe` and reports that it deleted the old `aishell` and `aishell.bat` files.
 
-Windows cannot overwrite a running executable, so upgrade renames the current `aishell.exe` to `aishell.exe.old` and puts the new one in its place. The next time you run aishell, it deletes the leftover.
+Windows cannot overwrite a running executable. The upgrade renames the current `aishell.exe` to `aishell.exe.old` and installs the new file. aishell deletes the old file the next time it runs.
 
 ### Update harness tools
 
@@ -341,15 +338,15 @@ aishell update --force
 aishell setup --reuse-config --force
 ```
 
-### Validate setup
+### Check the setup
 
-Run pre-flight checks without launching any container:
+Check the setup without starting a container:
 
 ```bash
 aishell check
 ```
 
-Checks Docker availability, build state, image existence, configuration validity, mount paths, sensitive files, gitleaks scan freshness, and tool availability (git, VSCode `code` CLI).
+The command checks Docker, the build state, images, configuration, mounts, sensitive files, gitleaks scan age, Git, and the VSCode `code` CLI.
 
 ## Configuration
 
@@ -393,7 +390,7 @@ pre_start: "redis-server --daemonize yes"
 
 Project configs merge with `~/.aishell/config.yaml` by default. See [Configuration docs](docs/CONFIGURATION.md) for merge strategy details. Set `extends: none` to disable inheritance.
 
-> **Tip:** `.sandbox/` is a full alias for `.aishell/` if you prefer no "ai" naming in your repo — put your `Dockerfile`/`config.yaml` there instead. Use only one of the two. Scaffold it with `aishell setup --dir .sandbox`. The global config dir stays `~/.aishell/`, and a `.sandbox` repo still inherits `~/.aishell/config.yaml`.
+> You can use `.sandbox/` as an alias for `.aishell/`. Put the project `Dockerfile` and `config.yaml` in one directory only. Create `.sandbox/` with `aishell setup --dir .sandbox`. Projects that use `.sandbox/` still inherit `~/.aishell/config.yaml`.
 
 ## Security
 
@@ -415,13 +412,13 @@ $ aishell claude
 Proceed? (y/n)
 ```
 
-**Bypass for CI/automation:**
+For CI or other automation, skip the confirmation prompt:
 
 ```bash
 aishell claude --unsafe  # Skip confirmation prompts
 ```
 
-### Gitleaks (Optional)
+### Gitleaks (optional)
 
 Gitleaks is opt-in. Enable it at build time:
 
@@ -446,11 +443,11 @@ aishell mounts harness configuration directories from your host (`~/.claude`, `~
 
 ### Claude Code
 
-**Option 1: Interactive OAuth**
+#### Interactive OAuth
 
 Run `aishell claude` and follow the prompts. Claude Code displays a URL you can copy-paste into your browser, completing OAuth even from within the container.
 
-**Option 2: API Key**
+#### API key
 
 ```bash
 export ANTHROPIC_API_KEY="your-key-here"
@@ -459,7 +456,7 @@ aishell claude
 
 ### Codex CLI
 
-**Option 1: Interactive OAuth**
+#### Interactive OAuth
 
 Run `aishell codex` and select "Sign in with ChatGPT". In headless environments, use:
 
@@ -469,7 +466,7 @@ codex login --device-auth
 
 This displays a code to enter at a URL in your browser.
 
-**Option 2: API Key**
+#### API key
 
 ```bash
 export OPENAI_API_KEY="your-key-here"  # For login
@@ -483,11 +480,10 @@ aishell codex
 Run `aishell copilot` and follow the device-code sign-in flow. Login, settings,
 plugins, saved permissions, and sessions persist in host `~/.copilot`.
 
-For token authentication, aishell automatically forwards only
-`COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST` when Copilot is enabled. Broader
-GitHub variables such as `GH_TOKEN`, `GITHUB_TOKEN`, and `GH_HOST` require an
-explicit `env:` entry. Copilot's self-updater is disabled in the Sandbox;
-use `aishell update` so the configured version stays authoritative.
+For token authentication, aishell forwards `COPILOT_GITHUB_TOKEN` and
+`COPILOT_GH_HOST` when you enable Copilot. Add broader GitHub variables such as
+`GH_TOKEN`, `GITHUB_TOKEN`, and `GH_HOST` to `env:`. The Sandbox disables
+Copilot's self-updater. Use `aishell update` to retain the configured version.
 
 Persistent defaults under `harness_args.copilot` apply to both
 `aishell copilot` and the `copilot` alias inside an interactive Sandbox. aishell
@@ -495,17 +491,17 @@ does not add `--allow-all` or `--yolo`.
 
 ### Gemini CLI
 
-**Option 1: Authenticate on host first**
+#### Authenticate on the host
 
 ```bash
 # On your host machine (not in container)
 gemini  # Select "Login with Google"
 
-# Then run in container - credentials are mounted
+# Then run in the container. aishell mounts the credentials.
 aishell gemini
 ```
 
-**Option 2: API Key**
+#### API key
 
 ```bash
 export GEMINI_API_KEY="your-key-here"
@@ -514,7 +510,7 @@ export GOOGLE_API_KEY="your-key-here"
 aishell gemini
 ```
 
-**Note:** Gemini CLI does not support device code flow for container authentication. Either authenticate on host first, or use an API key.
+Gemini CLI does not support the device-code flow for container authentication. Authenticate on the host or use an API key.
 
 ### Pi
 
@@ -525,17 +521,17 @@ Pi uses its own configuration-based authentication. Set up authentication on you
 pi auth
 ```
 
-The container mounts `~/.pi` automatically.
+aishell mounts `~/.pi` in the container.
 
 ### OpenCode
 
-OpenCode configuration directories (`~/.config/opencode`, `~/.local/share/opencode`) are mounted from your host. Refer to OpenCode's documentation for authentication methods.
+aishell mounts the OpenCode configuration directories from your host. These directories are `~/.config/opencode` and `~/.local/share/opencode`. Refer to OpenCode's documentation for authentication methods.
 
-## Environment Variables
+## Environment variables
 
-aishell automatically passes harness-specific API keys to containers when the corresponding harness is enabled and the variable is set on your host. Other variables (AWS, GitHub, etc.) must be passed explicitly via the `env:` section in `config.yaml`.
+aishell passes each harness-specific API key when you enable its harness and set the variable on your host. Add other variables, such as AWS and GitHub credentials, to `env:` in `config.yaml`.
 
-### Auto-Passed (per enabled harness)
+### Passed automatically
 
 | Variable | Harness | Notes |
 |----------|---------|-------|
@@ -557,11 +553,7 @@ aishell automatically passes harness-specific API keys to containers when the co
 
 ### Set by aishell
 
-These are not read from the host. aishell sets them in every sandbox where the
-harness is enabled, so `aishell update` and version pins stay authoritative; a
-`config.yaml` `env:` entry of the same name loses to them and `docker_args` is
-the escape hatch (see
-[ADR 0008](docs/adr/0008-harness-owned-runtime-environment-precedence.md)).
+aishell sets these variables in every sandbox that enables the harness. It does not read their values from the host. This rule keeps `aishell update` and version pins in control of the installed version. A `config.yaml` entry with the same name has lower precedence. Use `docker_args` to override the value. See [ADR 0008](docs/adr/0008-harness-owned-runtime-environment-precedence.md).
 
 | Variable | Harness | Notes |
 |----------|---------|-------|
@@ -569,13 +561,11 @@ the escape hatch (see
 | `COPILOT_AUTO_UPDATE=false` | GitHub Copilot CLI | Self-update off |
 | `PI_SKIP_VERSION_CHECK=true` | Pi | Startup version check off |
 
-Codex CLI gets the same policy through argv (`-c
-check_for_update_on_startup=false`). Gemini CLI and OpenCode offer it only in
-their own config files, which aishell mounts rather than writes.
+aishell passes `-c check_for_update_on_startup=false` to Codex CLI. Gemini CLI and OpenCode store this setting in configuration files that aishell mounts but does not write.
 
-### Require Explicit config.yaml `env:` Section
+### Variables that require an `env` entry
 
-These variables are **not** auto-passed. Add them to your `config.yaml` to forward them into containers:
+Add these variables to `config.yaml` to pass them into containers:
 
 ```yaml
 env:
@@ -596,7 +586,7 @@ env:
 | `AWS_REGION` | AWS region | Not auto-passed |
 | `AWS_PROFILE` | AWS profile | Named profile support |
 
-### Host-Side Variables
+### Host-side variables
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
@@ -607,75 +597,69 @@ env:
 
 ### Foundation image contents
 
-Built on `debian:trixie-slim` (glibc 2.41; the build asserts a floor of 2.39 — see `docs/adr/0005-glibc-floor-on-the-distro-image.md`) with:
+The foundation image uses `debian:trixie-slim` and glibc 2.41. The build requires glibc 2.39 or later. See [ADR 0005](docs/adr/0005-glibc-floor-on-the-distro-image.md).
 
-**Runtimes:**
+Runtimes:
+
 - Node.js 24 (with npm, npx)
 - Babashka
 - bbin (shared install dir at `/usr/local/share/bbin`, writable by both root at build and the developer user at runtime)
-- OpenJDK 21 JRE (headless) — required by bbin's `tools.deps` dep resolution
-- CUE v0.17.1 — data validation, configuration, and code generation
-- uv v0.11.29 — Python package and toolchain manager (`uv`, `uvx`); no interpreter is baked, uv fetches the version a project pins on demand
-- SQLite 3.53.4 — compiled from upstream source, not Debian's 3.46.1. Ships
+- OpenJDK 21 JRE (headless), which bbin requires to resolve `tools.deps` dependencies
+- CUE v0.17.1 for data validation, configuration, and code generation
+- uv v0.11.29 for Python packages and toolchains (`uv`, `uvx`)
+- SQLite 3.53.4, compiled from upstream source instead of Debian's 3.46.1 package. It includes
   `sqlite3`, `sqldiff` and `sqlite3_rsync`, plus the shared library, header and
-  pkg-config file under `/usr/local`. The library is `ldconfig`'d ahead of
-  Debian's, so anything in the container that links `libsqlite3.so.0` gets
-  3.53.4 too. `sqlite3_analyzer` is not included: it is the one tool that
-  requires TCL
+  pkg-config file under `/usr/local`.
 
-**Security tools:**
+uv downloads the Python version that a project pins. The image does not include a Python interpreter.
+
+`ldconfig` places the upstream SQLite library before Debian's library. Programs that link `libsqlite3.so.0` therefore use version 3.53.4. The image excludes `sqlite3_analyzer` because it requires TCL.
+
+Security tools:
+
 - Gitleaks v8.30.0 (optional, via `--with-gitleaks`)
 
-**CLI tools:**
+CLI tools:
+
 - git, ssh, patch, curl, jq, ripgrep, fd, vim
 - tree, less, file, watch
 - htop, sudo, rlwrap
 - zip, unzip, zstd, xz
 
-`ssh` needs your host keys mounted to be useful — see
-[mounts](docs/CONFIGURATION.md#mounts).
+Mount your host keys to use `ssh`. See [Mounts](docs/CONFIGURATION.md#mounts).
 
-**Document & data tools:**
-- `pdftotext`, `pdftoppm`, `pdfinfo`, `pdfimages` (poppler) — extract text from
-  PDFs (`-layout` preserves tables), pull page ranges out of large documents, and
-  rasterize pages to images. CJK CMap tables are included, so PDFs without
-  embedded fonts extract correctly
-- `xmllint` — validate XML/HTML and query it with XPath
-- `sponge`, `ts`, `chronic`, `ifne` (moreutils) — `sponge` soaks up stdin before
-  writing, making `cmd file | ... | sponge file` safe where `> file` would
-  truncate the input first
+Document and data tools:
 
-**Harness tools** (npm packages, binaries) are mounted from volumes at `/tools`, not baked into the image.
-This allows harness updates without rebuilding the foundation image.
+- `pdftotext`, `pdftoppm`, `pdfinfo`, and `pdfimages` from poppler extract text, select page ranges, and rasterize pages. The `-layout` option preserves tables. CJK CMap tables support PDFs without embedded fonts.
+- `xmllint` validates XML and HTML and queries them with XPath.
+- `sponge`, `ts`, `chronic`, and `ifne` come from moreutils. `sponge` reads all input before writing, so `cmd file | ... | sponge file` does not truncate the input file.
+
+aishell mounts harness tools from volumes at `/tools`. You can update these npm packages and binaries without rebuilding the foundation image.
 
 ### Git safe.directory
 
-When you run a container, aishell configures git to trust the mounted project directory by adding it to `safe.directory` in the container's gitconfig.
+When a container starts, aishell adds the mounted project to `safe.directory` in the container's Git configuration.
 
-**What happens:**
+The entrypoint performs these steps:
+
 1. The entrypoint runs `git config --global --add safe.directory /your/project/path`
 2. This writes to `~/.gitconfig` inside the container
 
-**Host gitconfig impact:**
-If you mount your host's `~/.gitconfig` or `~/.config/git/config` into the container (via `mounts` in config.yaml), the safe.directory entry will be added to your **host's** gitconfig file.
+If you mount `~/.gitconfig` or `~/.config/git/config`, the command writes the `safe.directory` entry to your host's Git configuration.
 
-**Why this happens:**
-- Git requires safe.directory for directories owned by different users
-- Inside the container, the mounted project appears owned by a different user
-- This is a security feature (CVE-2022-24765), not a bug
+Git requires this entry because the project can appear to have a different owner inside the container. This check protects against CVE-2022-24765.
 
-**To avoid modifying host gitconfig:**
-Don't mount your host gitconfig into the container. The container creates its own gitconfig that is discarded when the container exits.
+To keep the host configuration unchanged, do not mount it. The container creates a Git configuration file and discards it when the container exits.
 
 ## Documentation
 
-For detailed documentation, see the [docs/](docs/) folder:
+The `docs` directory contains the following guides:
 
-- **[Architecture](docs/ARCHITECTURE.md)** - System design, data flow, and codebase structure
-- **[Configuration](docs/CONFIGURATION.md)** - Complete config.yaml reference with examples
-- **[Harnesses](docs/HARNESSES.md)** - Setup and usage guide for each AI harness
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Development](docs/DEVELOPMENT.md)** - Guide for adding new harnesses
+- [Architecture](docs/ARCHITECTURE.md): system design, data flow, and codebase structure
+- [Configuration](docs/CONFIGURATION.md): `config.yaml` reference and examples
+- [Harnesses](docs/HARNESSES.md): setup and usage for each AI harness
+- [Troubleshooting](docs/TROUBLESHOOTING.md): common problems and remedies
+- [Development](docs/DEVELOPMENT.md): instructions for adding a harness
 
 ## License
 
