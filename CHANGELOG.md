@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-09-09
+
+### Added
+
+- **GitHub Copilot CLI is a first-class Harness**: `aishell setup --with-copilot[=VERSION]` installs `@github/copilot` in the shared Harness volume, and `aishell copilot` or the in-Sandbox `copilot` alias launch it with the same configured defaults. Host `~/.copilot` persists login and settings. Only `COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST` pass through automatically; broader GitHub credentials remain explicit opt-ins. Copilot permission prompts remain intact, while `COPILOT_AUTO_UPDATE=false` keeps `aishell update` and version pins authoritative
+
 ### Changed
 
 - **Harness update policy now lives on the Harness descriptor**: Claude Code's `DISABLE_AUTOUPDATER=1` and pi's `PI_SKIP_VERSION_CHECK=true` join Copilot's `COPILOT_AUTO_UPDATE=false` as `:runtime-env` entries, set exactly when their Harness is enabled. The precedence is `env` < `:runtime-env` < `docker_args`, so ordinary config cannot re-enable a self-updater against a read-only, pinned Harness volume while `docker_args` stays the deliberate escape hatch. `docs/adr/0008-harness-owned-runtime-environment-precedence.md` records it
@@ -20,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.1.0] - 2026-09-04
 
 ### Added
-
-- **GitHub Copilot CLI is a first-class Harness**: `aishell setup --with-copilot[=VERSION]` installs `@github/copilot` in the shared Harness volume, and `aishell copilot` or the in-Sandbox `copilot` alias launch it with the same configured defaults. Host `~/.copilot` persists login and settings. Only `COPILOT_GITHUB_TOKEN` and `COPILOT_GH_HOST` pass through automatically; broader GitHub credentials remain explicit opt-ins. Copilot permission prompts remain intact, while `COPILOT_AUTO_UPDATE=false` keeps `aishell update` and version pins authoritative
 
 - **aishell is now a single executable, and Docker is the only thing you install**: every release publishes one archive per platform (`aishell-linux-amd64.tar.gz`, `aishell-linux-aarch64.tar.gz`, `aishell-macos-amd64.tar.gz`, `aishell-macos-aarch64.tar.gz`, `aishell-windows-amd64.zip`), each holding a single file named `aishell` or `aishell.exe`, plus a `SHA256SUMS` file listing every asset the build produced. Each binary is the upstream babashka build for that platform with aishell's uberjar appended, so the interpreter ships with the program. `install.sh`, `install.ps1` and `install.bat` no longer download, detect or ask about babashka, and a Windows install is `aishell.exe` with no `.bat` shim beside it. The Linux binaries are statically linked, so they run on musl and on old glibc alike. Unpacking needs `tar` on Linux and macOS, and on Windows the `tar` that has shipped with Windows 10 since 1803, the same release that brought `curl`
 
