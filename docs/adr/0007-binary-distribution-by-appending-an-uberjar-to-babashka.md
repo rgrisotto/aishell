@@ -36,7 +36,8 @@ existed only to start the program.
   `aishell.bat` assets, because every installed v4.0.0 has an `upgrade`
   command that fetches those names and would otherwise drop a Linux ELF on a
   Windows machine. 4.2.0 stops publishing them; from then on a v4.0.0 install
-  must re-run the installer. `bbin install` from git remains the route for
+  must re-run the installer. **(Amended: 4.2.0 shipped with the trio still
+  in; 4.3.0 is the release that drops it. See the third amendment below.)** `bbin install` from git remains the route for
   people who want to run aishell on their own babashka.
 - **`aishell upgrade` migrates a script install in place**: replace the script
   with the binary, and on Windows write `aishell.exe` and delete the old
@@ -130,3 +131,12 @@ unpacked, and the staged-then-rename install is unchanged: the archive is
 unpacked beside the download and the binary inside is what moves onto
 PATH. The 4.1.0 legacy trio is unaffected; a v4.0.0 `upgrade` never sees
 the archives.
+
+## Amendment: the bridging window runs through 4.2.0
+
+v4.2.0 (2026-09-09) was released for the Copilot harness and the harness-owned
+update policy (ADR 0008) without touching the legacy gate in the build script,
+so it still published `aishell`, `aishell.bat` and `aishell.sha256`. That is
+harmless: an installed v4.0.0 upgrades straight to 4.2.0. The drop moves to
+4.3.0 (ticket aix-01m1kyn87b1a). It must not land in a 4.2.x patch, because a
+v4.0.0 `upgrade` fetches whatever release is newest regardless of its number.

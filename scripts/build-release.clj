@@ -34,9 +34,9 @@
 ;; one is the CLI's own runtime, the other a tool offered inside the sandbox.
 (def babashka-version "1.13.220")
 
-;; Bridging release only: v4.0.0 installs run an `upgrade` that fetches the
-;; legacy asset names. Remove this gate, and the code it guards, in 4.2.0
-;; together with the assets themselves.
+;; Bridging releases only: v4.0.0 installs run an `upgrade` that fetches the
+;; legacy asset names. 4.2.0 shipped with this gate still on. Remove it, the
+;; code it guards and the assets themselves in 4.3.0 (aix-01m1kyn87b1a).
 (def legacy-assets? true)
 
 (def output-dir "dist")
@@ -219,7 +219,7 @@
 
 (defn build-legacy-trio
   "Pre-4.1.0 assets: the uberscript, its CMD wrapper and its checksum file.
-   Returns the asset filenames. Removed in 4.2.0."
+   Returns the asset filenames. Removed in 4.3.0."
   []
   (println "Building legacy uberscript (bridging release)...")
   (fs/delete-if-exists legacy-script)
