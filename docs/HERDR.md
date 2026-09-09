@@ -81,8 +81,10 @@ reach for a separate `--name` container instead, is in
 
 Two consequences that matter in a multiplexer specifically:
 
-- **Pane 1 is load-bearing.** It holds the container; the attached panes are children. Close it and
-  every other Claude in that sandbox dies at once. herdr will not warn you — the panes simply go.
+- **Pane 1 is load-bearing.** It holds the container; the other panes hold Attached sessions. Close
+  it and every other Claude in that sandbox dies at once. herdr will not warn you — the panes simply
+  go, back to a usable shell prompt: aishell restores the terminal on the way out, so a pane whose
+  harness was killed mid-run is not left echoing mouse reports or swallowing your typing.
   Starting the container with a plain shell (`aishell shell`) makes the owning pane obviously
   infrastructure rather than a session you might tidy away.
 - **Attached panes do not self-close.** `-- claude` runs Claude and then execs a login shell. The

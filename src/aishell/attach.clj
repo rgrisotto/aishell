@@ -6,6 +6,7 @@
             [aishell.attach.invocation :as invocation]
             [aishell.attach.resolve :as attach-resolve]
             [aishell.docker.naming :as naming]
+            [aishell.terminal :as terminal]
             [aishell.output :as output]))
 
 (defn- resolve-term
@@ -77,7 +78,10 @@
    drops the user into a fresh interactive login shell — same shape as if
    they had attached and typed the command manually.
 
-   On success, transfers terminal control to container bash:
+   On success, transfers terminal control to container bash. Either way the
+   terminal is restored on the way out: an Attached session dies with its
+   Owning session, and the harness inside is killed before it can undo the
+   modes it set. See `aishell.terminal`.
    - Unix: uses p/exec (replaces process, cleaner process tree)
    - Windows: uses p/process :inherit (child process with I/O inheritance)"
   [name & {:keys [command-argv]}]
@@ -99,8 +103,11 @@
       ;; Use --login so /etc/profile sources /etc/profile.d/aishell.sh
       ;; which sets PATH (tools), prompt, aliases — matching normal startup
       (if (fs/windows?)
-        ;; Windows: spawn child process with inherited I/O, wait, propagate exit
+        ;; Windows: spawn child process with inherited I/O, wait, propagate exit.
+        ;; No stty equivalent here, so only the escapes are replayed.
         (let [result @(apply p/process {:inherit true} argv)]
+          (print terminal/restore-sequence)
+          (flush)
           (System/exit (:exit result)))
         ;; Unix: replace process (cleaner process tree)
-        (apply p/exec argv)))))
+        (apply p/exec (terminal/wrap-with-restore argv))))))

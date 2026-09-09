@@ -35,6 +35,14 @@ The 8-character SHA-256 prefix of a project's canonicalized directory path. Keys
 The Docker container a project's harness runs in, named `aishell-{project-hash}-{name}`.
 _Avoid_: box, environment
 
+**Owning session**:
+The session started by `aishell <harness>` or `aishell shell`, whose process holds the `docker run --rm` that created the Sandbox. Exactly one per Sandbox; when it exits, the Sandbox is removed and every Attached session on it dies.
+_Avoid_: main, parent, pane 1
+
+**Attached session**:
+A session joined to an existing Sandbox by `aishell attach`, running as a `docker exec` guest. Any number per Sandbox. It cannot outlive the Owning session and is not a process child of it.
+_Avoid_: child, secondary, sub-session
+
 **Claude config**:
 The slowly-changing Claude Code files a user deliberately curates and wants identical in every sandbox: skills, agents, commands, hooks, plugins, memory (CLAUDE.md), settings, credentials.
 

@@ -954,6 +954,28 @@ aishell claude  # No warning for allowlisted files
    - Wrong name: run `aishell ps` to see actual container names
    - Wrong directory: container names are project-scoped
 
+### Symptom: Terminal misbehaves after an attached session dies
+
+Mouse movement prints fragments like `35;17;1M` at the shell prompt, and typing produces nothing.
+
+**Cause:** The Owning session — the one started by `aishell claude` or `aishell shell` — holds the container. When it exits, the container is removed and every attached session dies with it. The harness inside is killed before it can undo the terminal modes it enabled, and those modes live in your terminal emulator rather than in the container, so they outlive it. The `35;17;1M` fragments are mouse-motion reports (DEC modes 1003 and 1006); the dead typing is most likely the kitty keyboard protocol left pushed, which turns every keystroke into an escape sequence your shell discards.
+
+aishell restores the terminal itself on both the attach and the run paths. On older versions, or if something restores it incompletely:
+
+**Resolution:**
+
+1. **Full reset** — clears the screen and scrollback:
+   ```bash
+   reset
+   ```
+
+2. **Targeted, keeping your scrollback** — type these blind; they will not echo:
+   ```bash
+   printf '\033[?1003l\033[?1006l\033[<u\033[?2004l\033[?25h\033[0m'; stty sane
+   ```
+
+3. **Avoid it entirely** by not using a working session as the Owning session. Start the container with a plain shell (`aishell shell`) and attach every harness to it, so the load-bearing pane is obviously infrastructure rather than something you might close.
+
 ### Symptom: "aishell ps" shows no containers
 
 **Cause:** No containers are running for the current project, or you are in a different directory.

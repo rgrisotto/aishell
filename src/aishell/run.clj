@@ -17,6 +17,7 @@
             [aishell.harness :as harness]
             [aishell.state :as state]
             [aishell.output :as output]
+            [aishell.terminal :as terminal]
             [aishell.validation :as validation]
             [aishell.detection.core :as detection]
             [aishell.gitleaks.warnings :as gitleaks-warnings]
@@ -262,12 +263,18 @@
             (print (str "\033]2;[aishell] " project-name "\007"))
             (flush)
             (if (fs/windows?)
-              ;; Windows: spawn child process with inherited I/O, wait, propagate exit
+              ;; Windows: spawn child process with inherited I/O, wait, propagate exit.
+              ;; No stty equivalent here, so only the escapes are replayed.
               (let [result @(apply p/process {:inherit true}
                                    (concat docker-args container-cmd))]
+                (print terminal/restore-sequence)
+                (flush)
                 (System/exit (:exit result)))
-              ;; Unix: replace process (cleaner process tree)
-              (apply p/exec (concat docker-args container-cmd)))))))))
+              ;; Unix: replace process (cleaner process tree). Wrapped so the
+              ;; terminal is restored if the harness is killed rather than
+              ;; exiting — `docker kill`, or the daemon going away.
+              (apply p/exec (terminal/wrap-with-restore
+                             (vec (concat docker-args container-cmd)))))))))))
 
 (defn run-exec
   "Run one-off command in container.
